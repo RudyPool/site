@@ -1,165 +1,203 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IGN - Exportador SHP Local</title>
+    <title>IGN Perú - Exportador SHP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #eef2f3; }
-        header { background: #003366; color: white; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        .container { padding: 20px; max-width: 1000px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        textarea { width: 100%; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box; }
-        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; margin-right: 10px; }
-        .btn-primary { background: #003366; color: white; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-danger { background: #d32f2f; color: white; }
-        .btn:hover { opacity: 0.8; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 13px; }
-        th { background-color: #f8f9fa; }
-        #map { height: 350px; border-radius: 8px; border: 1px solid #ccc; background: #f0f0f0; }
-        .loading-msg { color: #666; font-style: italic; font-size: 12px; margin-top: 5px; }
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            background: #f4f7f6;
+        }
+
+        header {
+            background: #003366;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .container {
+            padding: 20px;
+            max-width: 1000px;
+            margin: auto;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            margin: 10px 0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .btn-primary {
+            background: #003366;
+        }
+
+        .btn-shp {
+            background: #d32f2f;
+        }
+
+        #map {
+            height: 300px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
     </style>
 </head>
+
 <body>
 
-<header>
-    <h2>Instituto Geográfico Nacional – Transformador y Exportador</h2>
-</header>
+    <header>
+        <h2>IGN Perú - Transformador de Coordenadas</h2>
+    </header>
 
-<div class="container">
-    <div class="card">
-        <div style="margin-bottom: 15px;">
-            <select id="modo" style="padding: 5px;">
-                <option value="geo2utm">Geográficas → UTM (WGS84)</option>
+    <div class="container">
+        <div class="card">
+            <select id="modo">
+                <option value="geo2utm">Geográficas → UTM</option>
                 <option value="utm2geo">UTM → Geográficas</option>
             </select>
-            <label> Zona:</label>
-            <input type="number" id="zona" value="18" style="width: 40px; padding: 5px;">
-            <select id="hemisferio" style="padding: 5px;">
-                <option value="S">SUR</option>
-                <option value="N">NORTE</option>
+            <label> Zona:</label> <input type="number" id="zona" value="18" style="width: 40px;">
+            <select id="hem">
+                <option value="S">Sur</option>
+                <option value="N">Norte</option>
             </select>
-        </div>
-
-        <textarea id="entrada" placeholder="Ejemplo:&#10;-12.0459 -77.0305&#10;-12.1221 -77.0302"></textarea>
-        <p class="loading-msg">Nota: Si el mapa no carga, los botones de exportación seguirán funcionando.</p>
-        
-        <div style="margin-top: 15px;">
+            <textarea id="entrada" placeholder="-12.0464 -77.0306"></textarea>
             <button class="btn btn-primary" onclick="procesar()">1. Transformar</button>
-            <button class="btn btn-success" onclick="exportarExcel()">Excel</button>
-            <button class="btn btn-danger" onclick="exportarSHP()">2. Exportar SHP (ZIP)</button>
+            <button class="btn btn-shp" onclick="exportarSHP()">2. Descargar SHP (ZIP)</button>
+        </div>
+
+        <div class="card">
+            <div id="map"></div>
+            <table id="tabla">
+                <thead>
+                    <tr>
+                        <th>Punto</th>
+                        <th>Lat</th>
+                        <th>Lon</th>
+                        <th>Este (X)</th>
+                        <th>Norte (Y)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
         </div>
     </div>
 
-    <div class="card">
-        <div id="map"></div>
-        <table id="tabla">
-            <thead>
-                <tr><th>Punto</th><th>Latitud</th><th>Longitud</th><th>Este (X)</th><th>Norte (Y)</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script src="https://unpkg.com/proj4@2.9.0/dist/proj4.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.rawgit.com/mapbox/shp-write/master/shpwrite.js"></script>
+    <script src="https://raw.githack.com/mapbox/shp-write/master/shpwrite.js"></script>
 
-<script>
-    let puntos = [];
-    let map, capaPuntos;
+    <script>
+        let puntos = [];
+        let map = L.map('map').setView([-12.04, -77.03], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        let capaPuntos = L.layerGroup().addTo(map);
 
-    // Inicializar mapa con protección de errores
-    try {
-        map = L.map('map').setView([-12.04, -77.03], 10);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: 'OSM'
-        }).addTo(map);
-        capaPuntos = L.layerGroup().addTo(map);
-    } catch (e) {
-        console.log("El mapa no pudo cargar por restricciones de red.");
-        document.getElementById('map').innerHTML = "<p style='padding:20px'>El mapa está bloqueado por tu red/navegador, pero puedes seguir transformando y exportando datos.</p>";
-    }
+        function procesar() {
+            puntos = [];
+            capaPuntos.clearLayers();
+            const texto = document.getElementById("entrada").value.trim();
+            if (!texto) return;
 
-    function procesar() {
-        puntos = [];
-        const texto = document.getElementById("entrada").value.trim();
-        if (!texto) return alert("Por favor, ingresa coordenadas.");
+            const modo = document.getElementById("modo").value;
+            const zona = document.getElementById("zona").value;
+            const hem = document.getElementById("hem").value;
+            const utmDef = `+proj=utm +zone=${zona} ${hem === 'S' ? '+south' : ''} +datum=WGS84 +units=m +no_defs`;
 
-        const modo = document.getElementById("modo").value;
-        const zona = document.getElementById("zona").value;
-        const hem = document.getElementById("hemisferio").value;
-        const lineas = texto.split("\n");
-        
-        const utmDef = `+proj=utm +zone=${zona} ${hem === 'S' ? '+south' : ''} +datum=WGS84 +units=m +no_defs`;
-        let html = "";
-        let bounds = [];
+            let html = "";
+            let bounds = [];
 
-        lineas.forEach((linea, i) => {
-            const coord = linea.trim().split(/\s+/);
-            if (coord.length < 2) return;
+            texto.split("\n").forEach((linea, i) => {
+                const c = linea.trim().split(/\s+/);
+                if (c.length < 2) return;
+                let lat, lon, x, y;
 
-            let lat, lon, x, y;
-            if (modo === "geo2utm") {
-                lat = parseFloat(coord[0]); lon = parseFloat(coord[1]);
-                const res = proj4("+proj=longlat +datum=WGS84", utmDef, [lon, lat]);
-                x = res[0]; y = res[1];
-            } else {
-                x = parseFloat(coord[0]); y = parseFloat(coord[1]);
-                const res = proj4(utmDef, "+proj=longlat +datum=WGS84", [x, y]);
-                lon = res[0]; lat = res[1];
-            }
-
-            if (!isNaN(lat)) {
-                puntos.push({ id: i + 1, lat, lon, x, y, zona: zona + hem });
-                html += `<tr><td>${i+1}</td><td>${lat.toFixed(6)}</td><td>${lon.toFixed(6)}</td><td>${x.toFixed(2)}</td><td>${y.toFixed(2)}</td></tr>`;
-                
-                if (capaPuntos) {
-                    L.marker([lat, lon]).addTo(capaPuntos).bindPopup("Punto " + (i+1));
-                    bounds.push([lat, lon]);
+                if (modo === "geo2utm") {
+                    lat = parseFloat(c[0]); lon = parseFloat(c[1]);
+                    const res = proj4("+proj=longlat +datum=WGS84", utmDef, [lon, lat]);
+                    x = res[0]; y = res[1];
+                } else {
+                    x = parseFloat(c[0]); y = parseFloat(c[1]);
+                    const res = proj4(utmDef, "+proj=longlat +datum=WGS84", [x, y]);
+                    lon = res[0]; lat = res[1];
                 }
-            }
-        });
 
-        document.querySelector("#tabla tbody").innerHTML = html;
-        if (bounds.length > 0 && map) map.fitBounds(bounds);
-    }
-
-    function exportarSHP() {
-        if (puntos.length === 0) return alert("No hay datos procesados.");
-
-        const geojson = {
-            type: "FeatureCollection",
-            features: puntos.map(p => ({
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-                properties: { ID: p.id, X: p.x, Y: p.y, ZONA: p.zona }
-            }))
-        };
-
-        try {
-            // Intentamos generar el SHP
-            shpwrite.download(geojson, {
-                folder: 'Puntos_IGN',
-                types: { point: 'Export_Puntos' }
+                puntos.push({ id: i + 1, lat, lon, x, y, zona: zona + hem });
+                html += `<tr><td>${i + 1}</td><td>${lat.toFixed(6)}</td><td>${lon.toFixed(6)}</td><td>${x.toFixed(2)}</td><td>${y.toFixed(2)}</td></tr>`;
+                L.marker([lat, lon]).addTo(capaPuntos);
+                bounds.push([lat, lon]);
             });
-        } catch (err) {
-            alert("Error al exportar: La librería SHP no se cargó correctamente debido al bloqueo de tu navegador. Prueba abrir este archivo en Microsoft Edge o Firefox, que suelen ser menos restrictivos con archivos locales.");
-            console.error(err);
+
+            document.querySelector("#tabla tbody").innerHTML = html;
+            if (bounds.length) map.fitBounds(bounds);
         }
-    }
 
-    function exportarExcel() {
-        const table = document.getElementById("tabla");
-        const wb = XLSX.utils.table_to_book(table);
-        XLSX.writeFile(wb, "Coordenadas_IGN.xlsx");
-    }
-</script>
+        function exportarSHP() {
+            if (!puntos.length) return alert("Transforma los puntos primero.");
 
+            const geojson = {
+                type: "FeatureCollection",
+                features: puntos.map(p => ({
+                    type: "Feature",
+                    geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+                    properties: { ID: p.id, X: p.x, Y: p.y, ZONA: p.zona }
+                }))
+            };
+
+            try {
+                // Usamos la librería cargada globalmente
+                window.shpwrite.download(geojson, {
+                    folder: 'Puntos_IGN',
+                    types: { point: 'Export_IGN' }
+                });
+            } catch (e) {
+                alert("Error: GitHub está bloqueando la descarga. Intenta abrirlo en modo Incógnito o revisa tu conexión.");
+                console.error(e);
+            }
+        }
+    </script>
 </body>
+
 </html>
