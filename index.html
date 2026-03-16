@@ -2,36 +2,36 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IGN Perú - Exportador SHP Final</title>
+    <title>IGN Perú - Generador de Shapefiles</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background: #f0f2f5; }
-        header { background: #003366; color: white; padding: 15px; text-align: center; font-size: 1.2rem; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f0f2f5; }
+        header { background: #003366; color: white; padding: 15px; text-align: center; }
         .container { padding: 20px; max-width: 1000px; margin: auto; }
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        textarea { width: 100%; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; }
-        .btn { padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; margin-top: 10px; transition: 0.3s; }
+        textarea { width: 100%; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn { padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; margin-top: 10px; transition: 0.3s; }
         .btn-primary { background: #003366; margin-right: 10px; }
         .btn-shp { background: #d32f2f; }
-        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn:hover { opacity: 0.9; }
         #map { height: 400px; border-radius: 8px; border: 1px solid #ddd; margin-top: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
-        th, td { border: 1px solid #eee; padding: 10px; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        th, td { border: 1px solid #eee; padding: 10px; text-align: center; font-size: 13px; }
         th { background: #003366; color: white; }
-        .status { font-size: 12px; color: #666; margin-top: 5px; }
+        .status { font-size: 12px; margin-top: 5px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <header>
-    <strong>Instituto Geográfico Nacional</strong> - Generador de Shapefiles
+    <h2>Instituto Geográfico Nacional - Exportador SHP</h2>
 </header>
 
 <div class="container">
     <div class="card">
         <div style="margin-bottom:10px;">
             <select id="modo" style="padding:8px;">
-                <option value="geo2utm">Geográficas (Lat/Lon) → UTM</option>
+                <option value="geo2utm">Geográficas → UTM</option>
                 <option value="utm2geo">UTM → Geográficas</option>
             </select>
             <label> Zona:</label> <input type="number" id="zona" value="18" style="width: 50px; padding:7px;">
@@ -40,13 +40,12 @@
                 <option value="N">NORTE</option>
             </select>
         </div>
-        <textarea id="entrada" placeholder="Pega aquí tus coordenadas:&#10;-12.0459 -77.0305&#10;-12.1221 -77.0302"></textarea>
-        
+        <textarea id="entrada" placeholder="Pega coordenadas aquí..."></textarea>
         <div>
             <button class="btn btn-primary" onclick="procesar()">1. Transformar Puntos</button>
             <button class="btn btn-shp" onclick="descargarSHP()">2. Descargar SHP (.ZIP)</button>
         </div>
-        <div id="libStatus" class="status">Cargando motor de exportación...</div>
+        <div id="status" class="status" style="color: orange;">Cargando motor...</div>
     </div>
 
     <div id="map"></div>
@@ -63,7 +62,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/shp-write@latest/shpwrite.js"></script>
+
+<script src="https://unpkg.com/shp-write@0.3.2/shpwrite.js"></script>
 
 <script>
     let puntosGlobal = [];
@@ -71,14 +71,14 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     let capaMarcadores = L.layerGroup().addTo(map);
 
-    // Verificar si la librería cargó
+    // Verificación de motor
     window.onload = function() {
         if (typeof shpwrite !== 'undefined') {
-            document.getElementById('libStatus').innerHTML = "✅ Motor SHP listo.";
-            document.getElementById('libStatus').style.color = "green";
+            document.getElementById('status').innerText = "✅ Motor SHP listo";
+            document.getElementById('status').style.color = "green";
         } else {
-            document.getElementById('libStatus').innerHTML = "⚠️ Error: Refresca la página (F5).";
-            document.getElementById('libStatus').style.color = "red";
+            document.getElementById('status').innerText = "❌ Error de carga. Refresca con F5";
+            document.getElementById('status').style.color = "red";
         }
     };
 
@@ -86,7 +86,7 @@
         puntosGlobal = [];
         capaMarcadores.clearLayers();
         const texto = document.getElementById("entrada").value.trim();
-        if(!texto) return alert("Introduce coordenadas");
+        if(!texto) return alert("Ingresa coordenadas");
 
         const modo = document.getElementById("modo").value;
         const zona = document.getElementById("zona").value;
@@ -97,7 +97,7 @@
         let bounds = [];
 
         texto.split("\n").forEach((linea, i) => {
-            const c = linea.trim().split(/\s+/);
+            const c = linea.trim().split(/[\s,]+/);
             if(c.length < 2) return;
             
             let lat, lon, x, y;
@@ -124,31 +124,26 @@
     }
 
     function descargarSHP() {
-        if (puntosGlobal.length === 0) return alert("Primero presiona 'Transformar Puntos'");
+        if (!puntosGlobal.length) return alert("Primero transforma los puntos");
         
-        if (typeof shpwrite === 'undefined') {
-            return alert("La librería aún no carga. Intenta de nuevo en unos segundos.");
-        }
-
         const geojson = {
             type: "FeatureCollection",
             features: puntosGlobal.map(p => ({
                 type: "Feature",
                 geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-                properties: { 
-                    ID: p.id, 
-                    ESTE: parseFloat(p.x.toFixed(2)), 
-                    NORTE: parseFloat(p.y.toFixed(2)), 
-                    ZONA: p.zona 
-                }
+                properties: { ID: p.id, X: p.x, Y: p.y, ZONA: p.zona }
             }))
         };
 
-        // El truco para GitHub: usamos la función download directamente
-        shpwrite.download(geojson, {
-            folder: 'SHP_PUNTOS_IGN',
-            types: { point: 'Puntos_Export' }
-        });
+        try {
+            // Esta es la llamada correcta para la versión 0.3.2
+            shpwrite.download(geojson, {
+                folder: 'IGN_Export',
+                types: { point: 'puntos' }
+            });
+        } catch (err) {
+            alert("Error al generar ZIP: " + err.message);
+        }
     }
 </script>
 </body>
