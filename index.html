@@ -7,80 +7,90 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
-            font-family: sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             margin: 0;
-            background: #f4f7f6;
+            background: #f0f2f5;
         }
 
         header {
             background: #003366;
             color: white;
-            padding: 10px;
+            padding: 15px;
             text-align: center;
         }
 
         .container {
             padding: 20px;
-            max-width: 1000px;
+            max-width: 900px;
             margin: auto;
         }
 
         .card {
             background: white;
-            padding: 15px;
+            padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
         }
 
         textarea {
             width: 100%;
-            height: 80px;
+            height: 100px;
             margin: 10px 0;
             padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
             box-sizing: border-box;
         }
 
         .btn {
-            padding: 10px 15px;
+            padding: 12px 20px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             color: white;
             font-weight: bold;
-            margin-right: 5px;
+            transition: background 0.3s;
         }
 
         .btn-primary {
             background: #003366;
+            margin-right: 10px;
         }
 
         .btn-shp {
             background: #d32f2f;
         }
 
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         #map {
-            height: 300px;
+            height: 350px;
             border-radius: 8px;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
+            border: 1px solid #ddd;
+            margin-bottom: 20px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
+            background: white;
+            font-size: 13px;
         }
 
         th,
         td {
-            border: 1px solid #ddd;
-            padding: 8px;
+            border: 1px solid #eee;
+            padding: 10px;
             text-align: center;
         }
 
         th {
-            background: #f2f2f2;
+            background: #003366;
+            color: white;
         }
     </style>
 </head>
@@ -88,33 +98,36 @@
 <body>
 
     <header>
-        <h2>IGN Perú - Transformador de Coordenadas</h2>
+        <h2>Transformador de Coordenadas IGN</h2>
     </header>
 
     <div class="container">
         <div class="card">
-            <select id="modo">
-                <option value="geo2utm">Geográficas → UTM</option>
-                <option value="utm2geo">UTM → Geográficas</option>
-            </select>
-            <label> Zona:</label> <input type="number" id="zona" value="18" style="width: 40px;">
-            <select id="hem">
-                <option value="S">Sur</option>
-                <option value="N">Norte</option>
-            </select>
-            <textarea id="entrada" placeholder="-12.0464 -77.0306"></textarea>
+            <div style="margin-bottom:10px;">
+                <select id="modo" style="padding:5px;">
+                    <option value="geo2utm">Geográficas → UTM</option>
+                    <option value="utm2geo">UTM → Geográficas</option>
+                </select>
+                <label> Zona:</label> <input type="number" id="zona" value="18" style="width: 45px; padding:5px;">
+                <select id="hem" style="padding:5px;">
+                    <option value="S">SUR</option>
+                    <option value="N">NORTE</option>
+                </select>
+            </div>
+            <textarea id="entrada" placeholder="Ingresa Latitud Longitud..."></textarea>
             <button class="btn btn-primary" onclick="procesar()">1. Transformar</button>
-            <button class="btn btn-shp" onclick="exportarSHP()">2. Descargar SHP (ZIP)</button>
+            <button id="btnDescargar" class="btn btn-shp" onclick="exportarSHP()">2. Exportar SHP (ZIP)</button>
         </div>
 
-        <div class="card">
-            <div id="map"></div>
+        <div id="map"></div>
+
+        <div class="card" style="overflow-x:auto;">
             <table id="tabla">
                 <thead>
                     <tr>
                         <th>Punto</th>
-                        <th>Lat</th>
-                        <th>Lon</th>
+                        <th>Latitud</th>
+                        <th>Longitud</th>
                         <th>Este (X)</th>
                         <th>Norte (Y)</th>
                     </tr>
@@ -126,75 +139,87 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <script src="https://raw.githack.com/mapbox/shp-write/master/shpwrite.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/shp-write@0.4.3/shpwrite.js"></script>
 
     <script>
-        let puntos = [];
-        let map = L.map('map').setView([-12.04, -77.03], 11);
+        let puntosData = [];
+        const map = L.map('map').setView([-12.04, -77.03], 11);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        let capaPuntos = L.layerGroup().addTo(map);
+        let capaMarcadores = L.layerGroup().addTo(map);
 
         function procesar() {
-            puntos = [];
-            capaPuntos.clearLayers();
+            puntosData = [];
+            capaMarcadores.clearLayers();
             const texto = document.getElementById("entrada").value.trim();
-            if (!texto) return;
+            if (!texto) return alert("Ingresa datos");
 
             const modo = document.getElementById("modo").value;
             const zona = document.getElementById("zona").value;
             const hem = document.getElementById("hem").value;
             const utmDef = `+proj=utm +zone=${zona} ${hem === 'S' ? '+south' : ''} +datum=WGS84 +units=m +no_defs`;
 
-            let html = "";
+            let cuerpoTabla = "";
             let bounds = [];
 
             texto.split("\n").forEach((linea, i) => {
-                const c = linea.trim().split(/\s+/);
-                if (c.length < 2) return;
+                const coords = linea.trim().split(/\s+/);
+                if (coords.length < 2) return;
+
                 let lat, lon, x, y;
+                const id = i + 1;
 
-                if (modo === "geo2utm") {
-                    lat = parseFloat(c[0]); lon = parseFloat(c[1]);
-                    const res = proj4("+proj=longlat +datum=WGS84", utmDef, [lon, lat]);
-                    x = res[0]; y = res[1];
-                } else {
-                    x = parseFloat(c[0]); y = parseFloat(c[1]);
-                    const res = proj4(utmDef, "+proj=longlat +datum=WGS84", [x, y]);
-                    lon = res[0]; lat = res[1];
-                }
+                try {
+                    if (modo === "geo2utm") {
+                        lat = parseFloat(coords[0]); lon = parseFloat(coords[1]);
+                        const res = proj4("+proj=longlat +datum=WGS84", utmDef, [lon, lat]);
+                        x = res[0]; y = res[1];
+                    } else {
+                        x = parseFloat(coords[0]); y = parseFloat(coords[1]);
+                        const res = proj4(utmDef, "+proj=longlat +datum=WGS84", [x, y]);
+                        lon = res[0]; lat = res[1];
+                    }
 
-                puntos.push({ id: i + 1, lat, lon, x, y, zona: zona + hem });
-                html += `<tr><td>${i + 1}</td><td>${lat.toFixed(6)}</td><td>${lon.toFixed(6)}</td><td>${x.toFixed(2)}</td><td>${y.toFixed(2)}</td></tr>`;
-                L.marker([lat, lon]).addTo(capaPuntos);
-                bounds.push([lat, lon]);
+                    puntosData.push({ id, lat, lon, x, y, zona: zona + hem });
+                    cuerpoTabla += `<tr><td>${id}</td><td>${lat.toFixed(6)}</td><td>${lon.toFixed(6)}</td><td>${x.toFixed(2)}</td><td>${y.toFixed(2)}</td></tr>`;
+
+                    L.marker([lat, lon]).addTo(capaMarcadores).bindPopup(`Punto ${id}`);
+                    bounds.push([lat, lon]);
+                } catch (e) { console.error("Error en punto " + id); }
             });
 
-            document.querySelector("#tabla tbody").innerHTML = html;
+            document.querySelector("#tabla tbody").innerHTML = cuerpoTabla;
             if (bounds.length) map.fitBounds(bounds);
         }
 
         function exportarSHP() {
-            if (!puntos.length) return alert("Transforma los puntos primero.");
+            if (!puntosData.length) return alert("Primero transforma las coordenadas.");
+
+            // Verificamos si la librería existe antes de intentar usarla
+            if (typeof shpwrite === 'undefined') {
+                return alert("La librería SHP aún no ha cargado o está siendo bloqueada por tu red. Intenta refrescar (F5).");
+            }
 
             const geojson = {
                 type: "FeatureCollection",
-                features: puntos.map(p => ({
+                features: puntosData.map(p => ({
                     type: "Feature",
                     geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-                    properties: { ID: p.id, X: p.x, Y: p.y, ZONA: p.zona }
+                    properties: {
+                        ID: p.id,
+                        X: parseFloat(p.x.toFixed(2)),
+                        Y: parseFloat(p.y.toFixed(2)),
+                        ZONA: p.zona
+                    }
                 }))
             };
 
             try {
-                // Usamos la librería cargada globalmente
-                window.shpwrite.download(geojson, {
+                shpwrite.download(geojson, {
                     folder: 'Puntos_IGN',
-                    types: { point: 'Export_IGN' }
+                    types: { point: 'Resultados_SHP' }
                 });
-            } catch (e) {
-                alert("Error: GitHub está bloqueando la descarga. Intenta abrirlo en modo Incógnito o revisa tu conexión.");
-                console.error(e);
+            } catch (err) {
+                alert("Error al generar el ZIP: " + err.message);
             }
         }
     </script>
