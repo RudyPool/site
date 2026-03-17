@@ -2,90 +2,125 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IGN Perú - Exportador SHP Oficial</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IGN Perú - Servicio de Exportación SHP</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f0f2f5; }
-        header { background: #003366; color: white; padding: 20px; text-align: center; }
-        .container { max-width: 800px; margin: 20px auto; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        textarea { width: 100%; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .btn { padding: 15px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; width: 100%; margin-top: 10px; font-size: 16px; }
-        .btn-map { background: #003366; }
-        .btn-shp { background: #d32f2f; }
-        #map { height: 350px; border-radius: 12px; margin-top: 15px; border: 1px solid #ddd; }
+        :root { --ign-blue: #003366; --ign-red: #d32f2f; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background: #f8f9fa; color: #333; }
+        header { background: var(--ign-blue); color: white; padding: 1.5rem; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .container { max-width: 900px; margin: 2rem auto; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        label { font-weight: bold; display: block; margin-bottom: 10px; }
+        textarea { width: 100%; height: 120px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
+        .btn-group { margin-top: 15px; }
+        .btn { padding: 15px 25px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; width: 100%; font-size: 16px; margin-bottom: 10px; transition: 0.3s; }
+        .btn-map { background: var(--ign-blue); }
+        .btn-shp { background: var(--ign-red); }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        #map { height: 400px; border-radius: 12px; margin-top: 20px; border: 1px solid #ccc; }
+        footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
     </style>
 </head>
 <body>
 
 <header>
     <h1>Herramienta Web Institucional - IGN</h1>
-    <p>Exportación Directa a Shapefile (.ZIP)</p>
+    <p>Conversor de Coordenadas a Shapefile (.ZIP)</p>
 </header>
 
 <div class="container">
-    <label>Coordenadas (Lat Lon):</label>
-    <textarea id="coordsInput" placeholder="-12.0203 -77.0202"></textarea>
-    <button class="btn btn-map" onclick="procesar()">1. VISUALIZAR EN MAPA</button>
-    <button class="btn btn-shp" onclick="descargarSHP()">2. DESCARGAR SHAPEFILE (.ZIP)</button>
+    <label for="coordsInput">Pega tus coordenadas (Latitud Longitud):</label>
+    <textarea id="coordsInput" placeholder="-12.0203 -77.0202&#10;-12.0303 -77.0303"></textarea>
+    
+    <div class="btn-group">
+        <button class="btn btn-map" onclick="procesarPuntos()">1. VISUALIZAR EN MAPA</button>
+        <button class="btn btn-shp" onclick="descargarSHP()">2. DESCARGAR SHAPEFILE (.ZIP)</button>
+    </div>
+
     <div id="map"></div>
 </div>
 
+<footer>
+    © 2026 Instituto Geográfico Nacional - Perú | Soporte GIS
+</footer>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script src="https://rawgit.com/mapbox/shp-write/master/shpwrite.js"></script>
+<script src="shpwrite.js"></script>
 
 <script>
-    let geojsonRef = null;
+    let geojsonGlobal = null;
     const map = L.map('map').setView([-12.02, -77.02], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    let layer = L.featureGroup().addTo(map);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
 
-    function procesar() {
-        const texto = document.getElementById("coordsInput").value.trim();
-        if(!texto) return alert("Ingrese datos");
-        
-        layer.clearLayers();
+    let capaPuntos = L.featureGroup().addTo(map);
+
+    function procesarPuntos() {
+        const rawText = document.getElementById("coordsInput").value.trim();
+        if (!rawText) return alert("Por favor, ingrese coordenadas.");
+
+        capaPuntos.clearLayers();
         const features = [];
-        texto.split("\n").forEach((l, i) => {
-            const c = l.trim().split(/[\s,]+/);
-            if(c.length >= 2) {
-                const lat = parseFloat(c[0]), lon = parseFloat(c[1]);
-                features.push({
-                    type: "Feature",
-                    geometry: { type: "Point", coordinates: [lon, lat] },
-                    properties: { ID: i+1, LAT: lat, LON: lon }
-                });
-                L.marker([lat, lon]).addTo(layer);
+        const lineas = rawText.split("\n");
+
+        lineas.forEach((linea, index) => {
+            const partes = linea.trim().split(/[\s,]+/);
+            if (partes.length >= 2) {
+                const lat = parseFloat(partes[0]);
+                const lon = parseFloat(partes[1]);
+
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    features.push({
+                        type: "Feature",
+                        geometry: { type: "Point", coordinates: [lon, lat] },
+                        properties: { 
+                            ID: index + 1, 
+                            LAT: lat.toFixed(6), 
+                            LON: lon.toFixed(6) 
+                        }
+                    });
+                    L.marker([lat, lon]).addTo(capaPuntos).bindPopup("Punto " + (index + 1));
+                }
             }
         });
-        
-        geojsonRef = { type: "FeatureCollection", features: features };
-        if(features.length > 0) map.fitBounds(layer.getBounds());
+
+        if (features.length > 0) {
+            geojsonGlobal = { type: "FeatureCollection", features: features };
+            map.fitBounds(capaPuntos.getBounds());
+            alert("Se procesaron " + features.length + " puntos correctamente.");
+        } else {
+            alert("No se encontraron coordenadas válidas.");
+        }
     }
 
     function descargarSHP() {
-        if(!geojsonRef) return alert("Procese los puntos primero");
+        if (!geojsonGlobal) {
+            return alert("Primero debe procesar las coordenadas en el mapa.");
+        }
 
-        // Intentamos acceder a la librería por múltiples nombres posibles
-        const shp = window.shpwrite || window['shp-write'];
-
-        if(!shp) {
-            // FALLBACK CRÍTICO: Si la red bloquea RawGit, usamos un mensaje de diagnóstico
-            console.error("Librería shp-write no detectada en window.");
-            alert("Error: El motor de Shapefile sigue bloqueado por tu red institucional.\n\nSOLUCIÓN FINAL: Debes descargar el archivo 'shpwrite.js' de internet, subirlo a tu carpeta 'site' en GitHub y llamarlo así: <script src='shpwrite.js'>");
+        // Validación de la librería local
+        if (typeof shpwrite === 'undefined') {
+            console.error("Error: shpwrite.js no cargado.");
+            alert("Error Crítico: El archivo 'shpwrite.js' no se encuentra en tu servidor de GitHub.\n\nSúbelo a la carpeta 'site' para que la descarga funcione.");
             return;
         }
 
         try {
-            shp.download(geojsonRef, {
-                folder: 'IGN_EXPORT',
-                types: { point: 'puntos_ign' }
+            // Generación del Shapefile ZIP
+            shpwrite.download(geojsonGlobal, {
+                folder: 'IGN_PERU_SHP',
+                types: { point: 'puntos_exportados' }
             });
-        } catch (e) {
-            alert("Error de compresión: " + e.message);
+        } catch (error) {
+            console.error("Error en la descarga:", error);
+            alert("Error al generar el ZIP: " + error.message);
         }
     }
 </script>
+
 </body>
 </html>
