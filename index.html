@@ -2,107 +2,75 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IGN Perú - Exportador SHP ZIP Final</title>
+    <title>IGN Perú - Exportador de Coordenadas</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f0f2f5; }
-        header { background: #003366; color: white; padding: 20px; text-align: center; }
-        .container { padding: 20px; max-width: 900px; margin: auto; }
-        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; }
-        textarea { width: 100%; height: 100px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-        .btn { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; margin-top: 15px; }
-        .btn-primary { background: #003366; margin-right: 10px; }
-        .btn-shp { background: #d32f2f; }
-        #map { height: 350px; border-radius: 12px; border: 1px solid #ddd; margin-top: 20px; }
-        label { font-weight: 600; display: block; margin-bottom: 5px; font-size: 14px; }
+        header { background: #003366; color: white; padding: 15px; text-align: center; }
+        .container { padding: 20px; max-width: 800px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 100px; margin: 10px 0; padding: 10px; border-radius: 4px; border: 1px solid #ccc; }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-primary { background: #003366; }
+        .btn-success { background: #28a745; margin-left: 10px; }
+        #map { height: 300px; margin-top: 15px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-<header>
-    <h1>Generador Shapefile ZIP - IGN Perú</h1>
-</header>
+<header><h1>IGN Perú - Conversor de Datos</h1></header>
 
 <div class="container">
     <div class="card">
-        <div style="display:flex; gap:15px; margin-bottom:15px;">
-            <div>
-                <label for="modo">Modo:</label>
-                <select id="modo" style="padding:8px;"><option value="geo2utm">Geo → UTM</option></select>
-            </div>
-            <div>
-                <label for="zona">Zona:</label>
-                <input type="number" id="zona" value="18" style="width:50px; padding:7px;">
-            </div>
-        </div>
-        <label for="entrada">Latitud Longitud:</label>
+        <label for="entrada">Pega tus coordenadas (Lat Lon):</label>
         <textarea id="entrada" placeholder="-12.04 -77.03"></textarea>
         <button class="btn btn-primary" onclick="procesar()">1. Procesar</button>
-        <button class="btn btn-shp" onclick="descargarZIP()">2. Descargar ZIP</button>
+        <button class="btn btn-success" onclick="descargarCSV()">2. Descargar para ArcGIS/QGIS (.CSV)</button>
+        <div id="map"></div>
     </div>
-    <div id="map"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script src="https://bundle.run/shp-write@0.3.2"></script>
-
 <script>
-    let puntosGlobal = [];
+    let datosCargados = [];
     const map = L.map('map').setView([-12.04, -77.03], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    let capa = L.layerGroup().addTo(map);
 
     function procesar() {
-        puntosGlobal = [];
-        capa.clearLayers();
+        datosCargados = [];
         const texto = document.getElementById("entrada").value.trim();
-        const zona = document.getElementById("zona").value;
-        const utmDef = `+proj=utm +zone=${zona} +south +datum=WGS84 +units=m +no_defs`;
+        const utmDef = "+proj=utm +zone=18 +south +datum=WGS84 +units=m +no_defs";
         
-        let bounds = [];
         texto.split("\n").forEach((linea, i) => {
             const c = linea.trim().split(/\s+/);
             if(c.length < 2) return;
             const lat = parseFloat(c[0]), lon = parseFloat(c[1]);
             const res = proj4("+proj=longlat +datum=WGS84", utmDef, [lon, lat]);
-            puntosGlobal.push({ id: i+1, lat, lon, x: res[0], y: res[1] });
-            L.marker([lat, lon]).addTo(capa);
-            bounds.push([lat, lon]);
+            
+            datosCargados.push({ id: i+1, lat, lon, x: res[0].toFixed(2), y: res[1].toFixed(2) });
+            L.marker([lat, lon]).addTo(map);
         });
-        if(bounds.length) map.fitBounds(bounds);
+        alert("Puntos procesados correctamente.");
     }
 
-    function descargarZIP() {
-        if (!puntosGlobal.length) return alert("Procesa los puntos primero.");
-
-        // Intentar capturar la librería de bundle.run
-        const sw = window['shp-write'] || window.shpwrite;
+    function descargarCSV() {
+        if (datosCargados.length === 0) return alert("Procesa los datos primero.");
         
-        if (!sw) {
-            alert("El motor aún está cargando. Espera 5 segundos e intenta de nuevo.");
-            return;
-        }
+        // Cabecera compatible con cualquier software GIS
+        let csvContent = "ID,LATITUD,LONGITUD,ESTE_X,NORTE_Y,ZONA\n";
+        datosCargados.forEach(p => {
+            csvContent += `${p.id},${p.lat},${p.lon},${p.x},${p.y},18S\n`;
+        });
 
-        const geojson = {
-            type: "FeatureCollection",
-            features: puntosGlobal.map(p => ({
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-                properties: { ID: p.id, X: p.x.toFixed(2), Y: p.y.toFixed(2) }
-            }))
-        };
-
-        try {
-            sw.download(geojson, {
-                folder: 'Puntos_IGN',
-                types: { point: 'export' }
-            });
-        } catch (e) {
-            console.error(e);
-            alert("Error de compresión: " + e.message);
-        }
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", "puntos_ign_peru.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 </script>
 </body>
