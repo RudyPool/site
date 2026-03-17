@@ -47,6 +47,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
+
 <script src="shpwrite.js"></script>
 
 <script>
@@ -100,16 +102,16 @@
     function descargarSHP() {
         if (!geojsonGlobal) return alert("Primero procese los puntos.");
 
-        // Verificamos si la librería cargó correctamente desde tu GitHub
+        // Verificamos si la librería cargó correctamente
         if (typeof shpwrite === 'undefined') {
-            alert("Error: No se encontró 'shpwrite.js'. Asegúrate de haber subido el archivo a tu repositorio de GitHub en la misma carpeta.");
+            alert("Error: No se encontró 'shpwrite.js'. Verifica que esté en tu GitHub.");
             return;
         }
 
         try {
-            // Comando oficial para la versión 0.3.2
+            // Ejecución del motor
             shpwrite.download(geojsonGlobal, {
-                folder: 'IGN_PERU_DATOS',
+                folder: 'IGN_PERU_SHP',
                 types: {
                     point: 'puntos_exportados'
                 }
