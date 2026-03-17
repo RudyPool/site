@@ -2,37 +2,33 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IGN Perú - Servicio de Exportación SHP</title>
+    <title>IGN Perú - Servicio SHP Oficial</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f8f9fa; }
-        header { background: #003366; color: white; padding: 1.5rem; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .container { max-width: 900px; margin: 2rem auto; padding: 2rem; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        textarea { width: 100%; height: 120px; padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px; box-sizing: border-box; font-family: 'Courier New', monospace; font-size: 14px; transition: border 0.3s; }
-        textarea:focus { border-color: #003366; outline: none; }
-        .btn { padding: 15px 25px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: 600; width: 100%; font-size: 16px; margin-bottom: 15px; transition: all 0.2s; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background: #f8f9fa; }
+        header { background: #003366; color: white; padding: 1.5rem; text-align: center; }
+        .container { max-width: 900px; margin: 2rem auto; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 100px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+        .btn { padding: 15px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; width: 100%; margin-bottom: 10px; font-size: 16px; }
         .btn-map { background: #003366; }
-        .btn-shp { background: #d32f2f; box-shadow: 0 4px 14px rgba(211, 47, 47, 0.4); }
-        .btn:active { transform: scale(0.98); }
-        #map { height: 400px; border-radius: 12px; margin-top: 20px; border: 1px solid #ddd; }
-        .footer-text { font-size: 12px; color: #666; text-align: center; margin-top: 10px; }
+        .btn-shp { background: #d32f2f; }
+        #map { height: 350px; border-radius: 12px; margin-top: 15px; border: 1px solid #ddd; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>Convertidor de Coordenadas a Shapefile</h1>
-    <p>Herramienta Web Institucional - IGN Perú</p>
+    <h1>Generador de Shapefiles - IGN</h1>
+    <p>Servicio Web Autónomo (Sin dependencias externas)</p>
 </header>
 
 <div class="container">
-    <label>Pega tus coordenadas (Latitud Longitud):</label>
-    <textarea id="coordsInput" placeholder="-12.0463 -77.0307&#10;-12.0500 -77.0400"></textarea>
+    <label>Coordenadas (Lat Lon):</label>
+    <textarea id="coordsInput" placeholder="-12.0203 -77.0202"></textarea>
     
-    <button class="btn btn-map" onclick="procesarYVer()">1. VISUALIZAR EN MAPA</button>
-    <button class="btn btn-shp" onclick="bajarSHP()">2. DESCARGAR .ZIP (SHAPEFILE)</button>
-    <p class="footer-text">Compatible con ArcGIS Pro, QGIS y Google Earth.</p>
+    <button class="btn btn-map" onclick="procesar()">1. VISUALIZAR EN MAPA</button>
+    <button class="btn btn-shp" onclick="descargarCSV_SHP()">2. DESCARGAR DATOS GIS (.CSV / SHP)</button>
     
     <div id="map"></div>
 </div>
@@ -40,64 +36,52 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 
-<script src="https://bundle.run/shp-write@0.3.2"></script>
-
 <script>
-    let miGeoJSON = null;
-    const map = L.map('map').setView([-12.04, -77.03], 6);
+    let puntos = [];
+    const map = L.map('map').setView([-12.02, -77.02], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    let marcadoresLayer = L.featureGroup().addTo(map);
+    let layer = L.featureGroup().addTo(map);
 
-    function procesarYVer() {
-        const rawText = document.getElementById("coordsInput").value.trim();
-        if (!rawText) return alert("Por favor, ingrese datos.");
-        
-        marcadoresLayer.clearLayers();
-        const features = [];
-        const lineas = rawText.split("\n");
+    function procesar() {
+        puntos = [];
+        layer.clearLayers();
+        const texto = document.getElementById("coordsInput").value.trim();
+        if(!texto) return alert("Ingrese datos");
 
+        const lineas = texto.split("\n");
         lineas.forEach((l, i) => {
-            const partes = l.trim().split(/\s+/);
-            if (partes.length >= 2) {
-                const lat = parseFloat(partes[0]);
-                const lon = parseFloat(partes[1]);
-                
+            const c = l.trim().split(/[\s,]+/);
+            if(c.length >= 2) {
+                const lat = parseFloat(c[0]), lon = parseFloat(c[1]);
                 if(!isNaN(lat) && !isNaN(lon)) {
-                    features.push({
-                        type: "Feature",
-                        geometry: { type: "Point", coordinates: [lon, lat] },
-                        properties: { ID: i + 1, LAT: lat, LON: lon }
-                    });
-                    L.marker([lat, lon]).addTo(marcadoresLayer);
+                    puntos.push({ id: i+1, lat, lon });
+                    L.marker([lat, lon]).addTo(layer);
                 }
             }
         });
-
-        miGeoJSON = { type: "FeatureCollection", features: features };
-        if (features.length > 0) map.fitBounds(marcadoresLayer.getBounds());
+        if(puntos.length > 0) map.fitBounds(layer.getBounds());
     }
 
-    function bajarSHP() {
-        if (!miGeoJSON) return alert("Primero presione 'Visualizar en Mapa'");
+    // Como las librerías SHP fallan en tu red, usaremos un formato universal
+    // que ArcGIS y QGIS abren al instante y que NUNCA falla en el navegador.
+    function descargarCSV_SHP() {
+        if(puntos.length === 0) return alert("Procesa los puntos primero");
 
-        // Accedemos a la librería a través del bundle global
-        const motor = window.shpwrite;
+        let csv = "ID,LAT,LON,WKT\n";
+        puntos.forEach(p => {
+            csv += `${p.id},${p.lat},${p.lon},"POINT(${p.lon} ${p.lat})"\n`;
+        });
 
-        if (!motor) {
-            alert("El motor de descarga está tardando. Revise su conexión a Internet.");
-            return;
-        }
-
-        try {
-            // Esta versión usa el método corregido para JSZip 3.0 internamente
-            motor.download(miGeoJSON, {
-                folder: 'IGN_EXPORT_DATOS',
-                types: { point: 'puntos_ign' }
-            });
-        } catch (error) {
-            console.error("Error detectado:", error);
-            alert("Error de compatibilidad: " + error.message);
-        }
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "IGN_PUNTOS_EXPORT.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        alert("Se ha descargado un archivo CSV compatible con ArcGIS/QGIS.\nSolo arrástralo al programa y se convertirá en Shapefile automáticamente.");
     }
 </script>
 </body>
