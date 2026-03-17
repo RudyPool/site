@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IGN Perú - Servicio de Exportación SHP</title>
     <link rel="icon" href="data:,">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <style>
         :root { --ign-blue: #003366; --ign-red: #d32f2f; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background: #f8f9fa; color: #333; }
@@ -46,8 +49,6 @@
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
 
 <script src="shpwrite.js"></script>
 
@@ -102,19 +103,17 @@
     function descargarSHP() {
         if (!geojsonGlobal) return alert("Primero procese los puntos.");
 
-        // Verificamos si la librería cargó correctamente
+        // Verificamos el motor local
         if (typeof shpwrite === 'undefined') {
-            alert("Error: No se encontró 'shpwrite.js'. Verifica que esté en tu GitHub.");
+            alert("Error: No se encontró 'shpwrite.js'. Verifica que esté en tu carpeta 'site' de GitHub.");
             return;
         }
 
         try {
-            // Ejecución del motor
+            // Ejecutamos la descarga usando el motor que creamos antes
             shpwrite.download(geojsonGlobal, {
                 folder: 'IGN_PERU_SHP',
-                types: {
-                    point: 'puntos_exportados'
-                }
+                types: { point: 'puntos_exportados' }
             });
         } catch (error) {
             console.error(error);
