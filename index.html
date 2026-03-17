@@ -2,15 +2,15 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IGN Perú - Servicio SHP Oficial</title>
+    <title>IGN Perú - Exportador SHP Oficial</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background: #f8f9fa; }
-        header { background: #003366; color: white; padding: 1.5rem; text-align: center; }
-        .container { max-width: 900px; margin: 2rem auto; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-        textarea { width: 100%; height: 100px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-        .btn { padding: 15px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; width: 100%; margin-bottom: 10px; font-size: 16px; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f0f2f5; }
+        header { background: #003366; color: white; padding: 20px; text-align: center; }
+        .container { max-width: 800px; margin: 20px auto; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn { padding: 15px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; width: 100%; margin-top: 10px; font-size: 16px; }
         .btn-map { background: #003366; }
         .btn-shp { background: #d32f2f; }
         #map { height: 350px; border-radius: 12px; margin-top: 15px; border: 1px solid #ddd; }
@@ -19,69 +19,72 @@
 <body>
 
 <header>
-    <h1>Generador de Shapefiles - IGN</h1>
-    <p>Servicio Web Autónomo (Sin dependencias externas)</p>
+    <h1>Herramienta Web Institucional - IGN</h1>
+    <p>Exportación Directa a Shapefile (.ZIP)</p>
 </header>
 
 <div class="container">
     <label>Coordenadas (Lat Lon):</label>
     <textarea id="coordsInput" placeholder="-12.0203 -77.0202"></textarea>
-    
     <button class="btn btn-map" onclick="procesar()">1. VISUALIZAR EN MAPA</button>
-    <button class="btn btn-shp" onclick="descargarCSV_SHP()">2. DESCARGAR DATOS GIS (.CSV / SHP)</button>
-    
+    <button class="btn btn-shp" onclick="descargarSHP()">2. DESCARGAR SHAPEFILE (.ZIP)</button>
     <div id="map"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="https://rawgit.com/mapbox/shp-write/master/shpwrite.js"></script>
 
 <script>
-    let puntos = [];
-    const map = L.map('map').setView([-12.02, -77.02], 13);
+    let geojsonRef = null;
+    const map = L.map('map').setView([-12.02, -77.02], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     let layer = L.featureGroup().addTo(map);
 
     function procesar() {
-        puntos = [];
-        layer.clearLayers();
         const texto = document.getElementById("coordsInput").value.trim();
         if(!texto) return alert("Ingrese datos");
-
-        const lineas = texto.split("\n");
-        lineas.forEach((l, i) => {
+        
+        layer.clearLayers();
+        const features = [];
+        texto.split("\n").forEach((l, i) => {
             const c = l.trim().split(/[\s,]+/);
             if(c.length >= 2) {
                 const lat = parseFloat(c[0]), lon = parseFloat(c[1]);
-                if(!isNaN(lat) && !isNaN(lon)) {
-                    puntos.push({ id: i+1, lat, lon });
-                    L.marker([lat, lon]).addTo(layer);
-                }
+                features.push({
+                    type: "Feature",
+                    geometry: { type: "Point", coordinates: [lon, lat] },
+                    properties: { ID: i+1, LAT: lat, LON: lon }
+                });
+                L.marker([lat, lon]).addTo(layer);
             }
         });
-        if(puntos.length > 0) map.fitBounds(layer.getBounds());
+        
+        geojsonRef = { type: "FeatureCollection", features: features };
+        if(features.length > 0) map.fitBounds(layer.getBounds());
     }
 
-    // Como las librerías SHP fallan en tu red, usaremos un formato universal
-    // que ArcGIS y QGIS abren al instante y que NUNCA falla en el navegador.
-    function descargarCSV_SHP() {
-        if(puntos.length === 0) return alert("Procesa los puntos primero");
+    function descargarSHP() {
+        if(!geojsonRef) return alert("Procese los puntos primero");
 
-        let csv = "ID,LAT,LON,WKT\n";
-        puntos.forEach(p => {
-            csv += `${p.id},${p.lat},${p.lon},"POINT(${p.lon} ${p.lat})"\n`;
-        });
+        // Intentamos acceder a la librería por múltiples nombres posibles
+        const shp = window.shpwrite || window['shp-write'];
 
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", "IGN_PUNTOS_EXPORT.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        alert("Se ha descargado un archivo CSV compatible con ArcGIS/QGIS.\nSolo arrástralo al programa y se convertirá en Shapefile automáticamente.");
+        if(!shp) {
+            // FALLBACK CRÍTICO: Si la red bloquea RawGit, usamos un mensaje de diagnóstico
+            console.error("Librería shp-write no detectada en window.");
+            alert("Error: El motor de Shapefile sigue bloqueado por tu red institucional.\n\nSOLUCIÓN FINAL: Debes descargar el archivo 'shpwrite.js' de internet, subirlo a tu carpeta 'site' en GitHub y llamarlo así: <script src='shpwrite.js'>");
+            return;
+        }
+
+        try {
+            shp.download(geojsonRef, {
+                folder: 'IGN_EXPORT',
+                types: { point: 'puntos_ign' }
+            });
+        } catch (e) {
+            alert("Error de compresión: " + e.message);
+        }
     }
 </script>
 </body>
