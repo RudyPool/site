@@ -30,7 +30,7 @@
 </header>
 
 <div class="container">
-    <label for="coordsInput">Pega tus coordenadas (Latitud Longitud):</label>
+    <label>Pega tus coordenadas (Latitud Longitud):</label>
     <textarea id="coordsInput" placeholder="-12.0203 -77.0202&#10;-12.0303 -77.0303"></textarea>
     
     <div class="btn-group">
@@ -42,7 +42,7 @@
 </div>
 
 <footer>
-    © 2026 Instituto Geográfico Nacional - Perú | Soporte GIS
+    © 2026 Instituto Geográfico Nacional - Perú | Soporte Técnico GIS
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -91,32 +91,31 @@
         if (features.length > 0) {
             geojsonGlobal = { type: "FeatureCollection", features: features };
             map.fitBounds(capaPuntos.getBounds());
-            alert("Se procesaron " + features.length + " puntos correctamente.");
+            alert("Se procesaron " + features.length + " puntos.");
         } else {
-            alert("No se encontraron coordenadas válidas.");
+            alert("Formato de coordenadas incorrecto.");
         }
     }
 
     function descargarSHP() {
-        if (!geojsonGlobal) {
-            return alert("Primero debe procesar las coordenadas en el mapa.");
-        }
+        if (!geojsonGlobal) return alert("Primero procese los puntos.");
 
-        // Validación de la librería local
+        // Verificamos si la librería cargó correctamente desde tu GitHub
         if (typeof shpwrite === 'undefined') {
-            console.error("Error: shpwrite.js no cargado.");
-            alert("Error Crítico: El archivo 'shpwrite.js' no se encuentra en tu servidor de GitHub.\n\nSúbelo a la carpeta 'site' para que la descarga funcione.");
+            alert("Error: No se encontró 'shpwrite.js'. Asegúrate de haber subido el archivo a tu repositorio de GitHub en la misma carpeta.");
             return;
         }
 
         try {
-            // Generación del Shapefile ZIP
+            // Comando oficial para la versión 0.3.2
             shpwrite.download(geojsonGlobal, {
-                folder: 'IGN_PERU_SHP',
-                types: { point: 'puntos_exportados' }
+                folder: 'IGN_PERU_DATOS',
+                types: {
+                    point: 'puntos_exportados'
+                }
             });
         } catch (error) {
-            console.error("Error en la descarga:", error);
+            console.error(error);
             alert("Error al generar el ZIP: " + error.message);
         }
     }
