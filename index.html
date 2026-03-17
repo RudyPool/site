@@ -1,126 +1,368 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IGN Perú - Servicio de Exportación SHP</title>
-    <link rel="icon" href="data:,">
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <style>
-        :root { --ign-blue: #003366; --ign-red: #d32f2f; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background: #f8f9fa; color: #333; }
-        header { background: var(--ign-blue); color: white; padding: 1.5rem; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .container { max-width: 900px; margin: 2rem auto; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        label { font-weight: bold; display: block; margin-bottom: 10px; }
-        textarea { width: 100%; height: 120px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
-        .btn-group { margin-top: 15px; }
-        .btn { padding: 15px 25px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; width: 100%; font-size: 16px; margin-bottom: 10px; transition: 0.3s; }
-        .btn-map { background: var(--ign-blue); }
-        .btn-shp { background: var(--ign-red); }
-        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
-        #map { height: 400px; border-radius: 12px; margin-top: 20px; border: 1px solid #ccc; }
-        footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
-    </style>
+  <meta charset="UTF-8">
+  <title>Transformador de Coordenadas – IGN Perú</title>
+
+  <!-- Librerías de Mapa y Compresión -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f2f2f2
+    }
+
+    header {
+      background: #003366;
+      color: #fff;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    header img {
+      height: 60px;
+      margin-right: 15px
+    }
+
+    .container {
+      padding: 15px
+    }
+
+    .controls,
+    textarea,
+    table {
+      background: #fff;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      box-sizing: border-box;
+      font-family: monospace;
+    }
+
+    button,
+    select,
+    input {
+      padding: 8px;
+      margin-right: 5px;
+      margin-bottom: 5px;
+    }
+
+    button {
+      background: #003366;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #0055aa
+    }
+
+    .btn-shp {
+      background: #d32f2f;
+    }
+
+    .btn-shp:hover {
+      background: #f44336;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px
+    }
+
+    th,
+    td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: center
+    }
+
+    th {
+      background: #e6e6e6
+    }
+
+    #map {
+      height: 450px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    .marker-num {
+      background: #003366;
+      color: #fff;
+      border-radius: 50%;
+      width: 26px;
+      height: 26px;
+      line-height: 26px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: bold;
+      border: 2px solid white
+    }
+  </style>
 </head>
+
 <body>
 
-<header>
-    <h1>Herramienta Web Institucional - IGN</h1>
-    <p>Conversor de Coordenadas a Shapefile (.ZIP)</p>
-</header>
+  <header>
+    <img src="img/log_ign.png" alt="Logo IGN" onerror="this.src='https://www.idep.gob.pe/geoportal/images/logo_ign.png'">
+    <h2>Instituto Geográfico Nacional – Transformador de Coordenadas</h2>
+  </header>
 
-<div class="container">
-    <label>Pega tus coordenadas (Latitud Longitud):</label>
-    <textarea id="coordsInput" placeholder="-12.0203 -77.0202&#10;-12.0303 -77.0303"></textarea>
-    
-    <div class="btn-group">
-        <button class="btn btn-map" onclick="procesarPuntos()">1. VISUALIZAR EN MAPA</button>
-        <button class="btn btn-shp" onclick="descargarSHP()">2. DESCARGAR SHAPEFILE (.ZIP)</button>
+  <div class="container">
+
+    <div class="controls">
+      <label>Modo:</label>
+      <select id="modo">
+        <option value="utm2geo">UTM → Geográficas</option>
+        <option value="geo2utm">Geográficas → UTM</option>
+      </select>
+
+      <label>Zona:</label>
+      <input type="number" id="zona" value="18" min="1" max="60">
+
+      <label>Hemisferio:</label>
+      <select id="hemisferio">
+        <option value="S" selected>Sur</option>
+        <option value="N">Norte</option>
+      </select>
     </div>
 
+    <textarea id="entrada" placeholder="UTM → GEO:&#10;276000 8654000&#10;&#10;GEO → UTM:&#10;-12.045678 -77.031234"></textarea>
+
+    <div class="btn-group">
+      <button onclick="procesar()">Transformar</button>
+      <button onclick="exportarExcel()">Excel</button>
+      <button onclick="exportarGeoJSON()">GeoJSON</button>
+      <button onclick="exportarKML()">KML</button>
+      <button class="btn-shp" onclick="exportarSHP()">Exportar SHP</button>
+      
+      <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importarCSV(event)">
+      <button onclick="document.getElementById('csvFile').click()">Importar CSV</button>
+    </div>
+
+    <table id="tabla">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+
     <div id="map"></div>
-</div>
+  </div>
 
-<footer>
-    © 2026 Instituto Geográfico Nacional - Perú | Soporte Técnico GIS
-</footer>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/proj4@2.9.0/dist/proj4.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  
+  <!-- Tu motor profesional local -->
+  <script src="shpwrite.js"></script>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let puntosProcesados = [];
 
-<script src="shpwrite.js"></script>
+    // MAPA
+    const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 });
+    const satelite = L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 });
+    const map = L.map("map", { center: [-9, -75], zoom: 5, layers: [osm] });
+    let capaPuntos = L.layerGroup().addTo(map);
+    let capaTemporal = L.layerGroup().addTo(map);
 
-<script>
-    let geojsonGlobal = null;
-    const map = L.map('map').setView([-12.02, -77.02], 12);
-    
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
+    // CAPAS WMS IGN
+    const ign25k = L.tileLayer.wms("https://portalgeo.idep.gob.pe/geoportal/services/MAPA_BASE/PER%C3%9A_RASTER_25KT/MapServer/WMSServer", { layers: "0", format: "image/png", transparent: true });
+    const ign50k = L.tileLayer.wms("https://portalgeo.idep.gob.pe/geoportal/services/MAPA_BASE/PER%C3%9A_RASTER_50KT/MapServer/WMSServer", { layers: "0", format: "image/png", transparent: true });
+    const ign100k = L.tileLayer.wms("https://www.idep.gob.pe/geoportal/services/MAPA_BASE/PER%C3%9A_RASTER_100K/MapServer/WMSServer", { layers: "0", format: "image/png", transparent: true });
+    const ign100kAct = L.tileLayer.wms("https://portalgeo.idep.gob.pe/geoportal/services/MAPA_BASE/PER%C3%9A_RASTER_100KACTUALIZADO1/MapServer/WMSServer", { layers: "0", format: "image/png", transparent: true });
 
-    let capaPuntos = L.featureGroup().addTo(map);
+    L.control.layers(
+      { "OpenStreetMap": osm, "Satelital": satelite },
+      { "IGN 25K": ign25k, "IGN 50K": ign50k, "IGN 100K": ign100k, "IGN 100K Actualizado": ign100kAct },
+      { collapsed: false }).addTo(map);
 
-    function procesarPuntos() {
-        const rawText = document.getElementById("coordsInput").value.trim();
-        if (!rawText) return alert("Por favor, ingrese coordenadas.");
+    // CLICK EN MAPA
+    map.on("click", function (e) {
+      capaTemporal.clearLayers();
+      const lat = e.latlng.lat;
+      const lon = e.latlng.lng;
+      L.marker([lat, lon]).addTo(capaTemporal)
+        .bindPopup(`Lat:${lat.toFixed(6)}<br>Lon:${lon.toFixed(6)}`).openPopup();
+    });
 
-        capaPuntos.clearLayers();
-        const features = [];
-        const lineas = rawText.split("\n");
+    // PROCESAR TRANSFORMACIÓN
+    function procesar() {
+      puntosProcesados = [];
+      capaPuntos.clearLayers();
+      document.querySelector("#tabla thead").innerHTML = "";
+      document.querySelector("#tabla tbody").innerHTML = "";
 
-        lineas.forEach((linea, index) => {
-            const partes = linea.trim().split(/[\s,]+/);
-            if (partes.length >= 2) {
-                const lat = parseFloat(partes[0]);
-                const lon = parseFloat(partes[1]);
+      const modo = document.getElementById("modo").value;
+      const zona = document.getElementById("zona").value;
+      const hem = document.getElementById("hemisferio").value;
+      const entradaVal = document.getElementById("entrada").value.trim();
+      
+      if (!entradaVal) return alert("Ingrese coordenadas de entrada");
+      
+      const filas = entradaVal.split("\n");
+      let i = 1, bounds = [];
+      const utmDef = `+proj=utm +zone=${zona} ${hem === "S" ? "+south" : ""} +datum=WGS84 +units=m +no_defs`;
 
-                if (!isNaN(lat) && !isNaN(lon)) {
-                    features.push({
-                        type: "Feature",
-                        geometry: { type: "Point", coordinates: [lon, lat] },
-                        properties: { 
-                            ID: index + 1, 
-                            LAT: lat.toFixed(6), 
-                            LON: lon.toFixed(6) 
-                        }
-                    });
-                    L.marker([lat, lon]).addTo(capaPuntos).bindPopup("Punto " + (index + 1));
-                }
-            }
+      if (modo === "utm2geo") {
+        document.querySelector("#tabla thead").innerHTML = "<tr><th>N°</th><th>Este</th><th>Norte</th><th>Lat</th><th>Lon</th></tr>";
+        filas.forEach(f => {
+          const p = f.trim().split(/\s+/);
+          if (p.length < 2 || isNaN(p[0]) || isNaN(p[1])) return;
+          const [lon, lat] = proj4(utmDef, "+proj=longlat +datum=WGS84", [+p[0], +p[1]]);
+          marcador(lat, lon, i);
+          bounds.push([lat, lon]);
+          puntosProcesados.push({ id: i, lat: lat, lon: lon, este: p[0], norte: p[1], zona: zona + hem });
+          document.querySelector("#tabla tbody").innerHTML += `<tr><td>${i}</td><td>${p[0]}</td><td>${p[1]}</td><td>${lat.toFixed(6)}</td><td>${lon.toFixed(6)}</td></tr>`;
+          i++;
         });
+      } else {
+        document.querySelector("#tabla thead").innerHTML = "<tr><th>N°</th><th>Lat</th><th>Lon</th><th>Este</th><th>Norte</th></tr>";
+        filas.forEach(f => {
+          const p = f.trim().split(/\s+/);
+          if (p.length < 2 || isNaN(p[0]) || isNaN(p[1])) return;
+          const [e, n] = proj4("+proj=longlat +datum=WGS84", utmDef, [+p[1], +p[0]]);
+          marcador(+p[0], +p[1], i);
+          bounds.push([+p[0], +p[1]]);
+          puntosProcesados.push({ id: i, lat: +p[0], lon: +p[1], este: e.toFixed(2), norte: n.toFixed(2), zona: zona + hem });
+          document.querySelector("#tabla tbody").innerHTML += `<tr><td>${i}</td><td>${p[0]}</td><td>${p[1]}</td><td>${e.toFixed(2)}</td><td>${n.toFixed(2)}</td></tr>`;
+          i++;
+        });
+      }
 
-        if (features.length > 0) {
-            geojsonGlobal = { type: "FeatureCollection", features: features };
-            map.fitBounds(capaPuntos.getBounds());
-            alert("Se procesaron " + features.length + " puntos.");
-        } else {
-            alert("Formato de coordenadas incorrecto.");
-        }
+      if (bounds.length) map.fitBounds(bounds);
     }
 
-    function descargarSHP() {
-        if (!geojsonGlobal) return alert("Primero procese los puntos.");
-
-        // Verificamos el motor local
-        if (typeof shpwrite === 'undefined') {
-            alert("Error: No se encontró 'shpwrite.js'. Verifica que esté en tu carpeta 'site' de GitHub.");
-            return;
-        }
-
-        try {
-            // Ejecutamos la descarga usando el motor que creamos antes
-            shpwrite.download(geojsonGlobal, {
-                folder: 'IGN_PERU_SHP',
-                types: { point: 'puntos_exportados' }
-            });
-        } catch (error) {
-            console.error(error);
-            alert("Error al generar el ZIP: " + error.message);
-        }
+    function marcador(lat, lon, n) {
+      const icon = L.divIcon({ html: `<div class="marker-num">${n}</div>`, className: "", iconSize: [26, 26], iconAnchor: [13, 13] });
+      L.marker([lat, lon], { icon }).addTo(capaPuntos);
     }
-</script>
 
+    // EXPORTACIÓN A SHAPEFILE (Integración Nueva)
+    function exportarSHP() {
+      if (puntosProcesados.length === 0) return alert("No hay puntos para exportar.");
+      
+      if (typeof shpwrite === 'undefined') {
+          return alert("Error: El motor 'shpwrite.js' no se ha detectado. Asegúrese de que esté en la misma carpeta.");
+      }
+
+      const geojson = {
+          type: "FeatureCollection",
+          features: puntosProcesados.map(p => ({
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+              properties: { 
+                  ID: p.id, 
+                  ESTE: p.este, 
+                  NORTE: p.norte, 
+                  ZONA: p.zona 
+              }
+          }))
+      };
+
+      try {
+          shpwrite.download(geojson, {
+              folder: 'IGN_PERU_SHP',
+              types: { point: 'puntos_transformados' }
+          });
+      } catch (err) {
+          alert("Error al generar SHP: " + err.message);
+      }
+    }
+
+    // EXPORTAR EXCEL
+    function exportarExcel() {
+      const tabla = document.getElementById("tabla");
+      if (tabla.rows.length <= 1) { alert("No hay datos"); return; }
+      const wb = XLSX.utils.table_to_book(tabla, { sheet: "Transformación" });
+      XLSX.writeFile(wb, "Transformacion_IGN.xlsx");
+    }
+
+    // EXPORTAR GEOJSON
+    function exportarGeoJSON() {
+      if (puntosProcesados.length === 0) { alert("No hay puntos"); return; }
+      const geojson = {
+        type: "FeatureCollection", features: puntosProcesados.map(p => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+          properties: { ID: p.id, Este: p.este, Norte: p.norte, Zona: p.zona }
+        }))
+      };
+      descargar(JSON.stringify(geojson, null, 2), "Transformacion_IGN.geojson", "application/json");
+    }
+
+    // EXPORTAR KML
+    function exportarKML() {
+      if (puntosProcesados.length === 0) { alert("No hay puntos"); return; }
+
+      let kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document><name>Transformacion IGN</name>`;
+
+      puntosProcesados.forEach(p => {
+        kml += `
+<Placemark>
+<name>Punto ${p.id}</name>
+<description><![CDATA[
+Lat: ${p.lat}<br>
+Lon: ${p.lon}<br>
+Este: ${p.este}<br>
+Norte: ${p.norte}<br>
+Zona: ${p.zona}
+]]></description>
+<Point><coordinates>${p.lon},${p.lat},0</coordinates></Point>
+</Placemark>`;
+      });
+
+      kml += `</Document></kml>`;
+      descargar(kml, "Transformacion_IGN.kml", "application/vnd.google-earth.kml+xml");
+    }
+
+    function descargar(contenido, nombre, tipo) {
+      const blob = new Blob([contenido], { type: tipo });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = nombre;
+      link.click();
+    }
+
+    // IMPORTAR CSV
+    function importarCSV(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        const lineas = ev.target.result.split(/\r?\n/);
+        let texto = "";
+        lineas.forEach(l => {
+          if (!l.trim()) return;
+          let p = l.split(/[;,]/);
+          if (p.length >= 2 && !isNaN(p[0]) && !isNaN(p[1]))
+            texto += p[0].trim() + " " + p[1].trim() + "\n";
+        });
+        document.getElementById("entrada").value = texto;
+        alert("CSV cargado correctamente");
+      };
+      reader.readAsText(file);
+    }
+
+  </script>
 </body>
+
 </html>
