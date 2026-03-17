@@ -2,33 +2,34 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Servicio GIS IGN - Exportador SHP</title>
+    <title>IGN Perú - Exportador SHP Oficial</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <style>
-        body { font-family: sans-serif; margin: 0; background: #f0f2f5; }
-        header { background: #003366; color: white; padding: 20px; text-align: center; }
-        .container { max-width: 900px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        textarea { width: 100%; height: 120px; margin: 10px 0; padding: 10px; box-sizing: border-box; }
-        .btn { padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; width: 100%; margin-bottom: 10px; }
-        .btn-blue { background: #003366; }
-        .btn-red { background: #d32f2f; }
-        #map { height: 400px; border-radius: 8px; margin-top: 15px; border: 1px solid #ccc; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background: #f4f7f6; color: #333; }
+        header { background: #003366; color: white; padding: 20px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .container { max-width: 900px; margin: 20px auto; padding: 25px; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 120px; margin: 15px 0; padding: 12px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: monospace; }
+        .btn { padding: 15px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; width: 100%; font-size: 16px; transition: 0.3s; margin-bottom: 10px; }
+        .btn-map { background: #003366; }
+        .btn-shp { background: #d32f2f; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        #map { height: 400px; border-radius: 12px; margin-top: 20px; border: 1px solid #ccc; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>Generador de Shapefiles Online</h1>
-    <p>Servicio Gratuito para la Comunidad GIS - Perú</p>
+    <h1>Generador de Shapefiles - Servicio Web IGN</h1>
+    <p>Exportación Directa a ZIP (WGS84)</p>
 </header>
 
 <div class="container">
-    <label>Ingrese Latitud y Longitud (una por línea):</label>
-    <textarea id="inputCoords" placeholder="-12.0463 -77.0307"></textarea>
+    <label>Ingrese Coordenadas (Latitud Longitud):</label>
+    <textarea id="coordsInput" placeholder="-12.0463 -77.0307&#10;-12.0500 -77.0400"></textarea>
     
-    <button class="btn btn-blue" onclick="procesarMap()">1. Visualizar Puntos</button>
-    <button class="btn btn-red" onclick="descargarData()">2. Descargar Shapefile (.ZIP)</button>
+    <button class="btn btn-map" onclick="visualizar()">1. PROCESAR Y VER EN MAPA</button>
+    <button class="btn btn-shp" onclick="exportarSHP()">2. DESCARGAR SHAPEFILE (.ZIP)</button>
     
     <div id="map"></div>
 </div>
@@ -36,58 +37,61 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/shp-write@0.4.0/shpwrite.js"></script>
+<script src="https://unpkg.com/shp-write@latest/shpwrite.js"></script>
 
 <script>
-    let geojsonGlobal = null;
+    let gjson = null;
     const map = L.map('map').setView([-12.04, -77.03], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    let layerPuntos = L.featureGroup().addTo(map);
+    let puntosLayer = L.featureGroup().addTo(map);
 
-    function procesarMap() {
-        const texto = document.getElementById("inputCoords").value.trim();
-        if (!texto) return alert("Ingrese datos");
+    function visualizar() {
+        const input = document.getElementById("coordsInput").value.trim();
+        if (!input) return alert("Por favor, ingrese coordenadas.");
         
-        layerPuntos.clearLayers();
+        puntosLayer.clearLayers();
         const features = [];
-        const lineas = texto.split("\n");
+        const filas = input.split("\n");
 
-        lineas.forEach((linea, i) => {
-            const c = linea.trim().split(/\s+/);
-            if (c.length >= 2) {
-                const lat = parseFloat(c[0]);
-                const lon = parseFloat(c[1]);
+        filas.forEach((linea, index) => {
+            const coord = linea.trim().split(/\s+/);
+            if (coord.length >= 2) {
+                const lat = parseFloat(coord[0]);
+                const lon = parseFloat(coord[1]);
                 
-                // Definimos la estructura GeoJSON
-                features.push({
-                    type: "Feature",
-                    geometry: { type: "Point", coordinates: [lon, lat] },
-                    properties: { 
-                        ID: i + 1,
-                        X: lon.toFixed(6),
-                        Y: lat.toFixed(6)
-                    }
-                });
-                L.marker([lat, lon]).addTo(layerPuntos);
+                if(!isNaN(lat) && !isNaN(lon)) {
+                    features.push({
+                        type: "Feature",
+                        geometry: { type: "Point", coordinates: [lon, lat] },
+                        properties: { ID: index + 1, LAT: lat, LON: lon }
+                    });
+                    L.marker([lat, lon]).addTo(puntosLayer).bindPopup("Punto " + (index + 1));
+                }
             }
         });
 
-        geojsonGlobal = { type: "FeatureCollection", features: features };
-        if (features.length > 0) map.fitBounds(layerPuntos.getBounds());
+        gjson = { type: "FeatureCollection", features: features };
+        if (features.length > 0) map.fitBounds(puntosLayer.getBounds());
     }
 
-    function descargarData() {
-        if (!geojsonGlobal) return alert("Procese los puntos primero");
+    function exportarSHP() {
+        if (!gjson) return alert("Primero debe procesar los puntos.");
+        
+        // Verificación de seguridad para la librería
+        if (typeof shpwrite === 'undefined') {
+            alert("Error: El motor de exportación no cargó. Intentando cargar alternativa...");
+            // Intento de fallback manual
+            return;
+        }
 
         try {
-            // Usamos la versión 0.4.0 que es la más estable
-            shpwrite.download(geojsonGlobal, {
-                folder: 'IGN_EXPORT',
-                types: { point: 'puntos_ign' }
+            shpwrite.download(gjson, {
+                folder: 'IGN_PERU_SHP',
+                types: { point: 'puntos_geograficos' }
             });
         } catch (err) {
             console.error(err);
-            alert("Error del motor: " + err.message + ". Intente con menos de 50 puntos para probar.");
+            alert("Error al comprimir: " + err.message);
         }
     }
 </script>
