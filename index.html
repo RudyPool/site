@@ -2,54 +2,33 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Servicio GIS - IGN Perú</title>
-    <link rel="icon" href="data:,"> <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <title>Servicio GIS IGN - Exportador SHP</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <style>
-        :root { --ign-blue: #003366; --ign-red: #d32f2f; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f4f7f6; color: #333; }
-        header { background: var(--ign-blue); color: white; padding: 1.5rem; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        .main-container { max-width: 1000px; margin: 20px auto; padding: 0 20px; }
-        .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 20px; }
-        textarea { width: 100%; height: 120px; padding: 12px; border: 2px solid #eee; border-radius: 8px; box-sizing: border-box; font-family: monospace; transition: 0.3s; }
-        textarea:focus { border-color: var(--ign-blue); outline: none; }
-        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
-        .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; color: white; }
-        .btn-primary { background: var(--ign-blue); width: 100%; }
-        .btn-primary:hover { background: #004488; }
-        .btn-download { background: var(--ign-red); width: 100%; margin-top: 10px; }
-        #map { height: 400px; border-radius: 12px; border: 2px solid #ddd; }
+        body { font-family: sans-serif; margin: 0; background: #f0f2f5; }
+        header { background: #003366; color: white; padding: 20px; text-align: center; }
+        .container { max-width: 900px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 120px; margin: 10px 0; padding: 10px; box-sizing: border-box; }
+        .btn { padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; width: 100%; margin-bottom: 10px; }
+        .btn-blue { background: #003366; }
+        .btn-red { background: #d32f2f; }
+        #map { height: 400px; border-radius: 8px; margin-top: 15px; border: 1px solid #ccc; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>Servicio de Conversión Geográfica - IGN</h1>
-    <p>Conversión masiva de coordenadas a Shapefile (WGS84 / UTM)</p>
+    <h1>Generador de Shapefiles Online</h1>
+    <p>Servicio Gratuito para la Comunidad GIS - Perú</p>
 </header>
 
-<div class="main-container">
-    <div class="card">
-        <div class="controls">
-            <div>
-                <label>Zona UTM:</label>
-                <input type="number" id="zona" value="18" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-            </div>
-            <div>
-                <label>Hemisferio:</label>
-                <select id="hem" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-                    <option value="S">SUR</option>
-                    <option value="N">NORTE</option>
-                </select>
-            </div>
-        </div>
-        
-        <label>Pegue Coordenadas (Latitud Longitud):</label>
-        <textarea id="coords" placeholder="-12.0463 -77.0307&#10;-12.0500 -77.0400"></textarea>
-        
-        <button class="btn btn-primary" onclick="procesarPuntos()">1. VISUALIZAR EN MAPA</button>
-        <button class="btn btn-download" onclick="generarSHP()">2. DESCARGAR SHAPEFILE (.ZIP)</button>
-    </div>
+<div class="container">
+    <label>Ingrese Latitud y Longitud (una por línea):</label>
+    <textarea id="inputCoords" placeholder="-12.0463 -77.0307"></textarea>
+    
+    <button class="btn btn-blue" onclick="procesarMap()">1. Visualizar Puntos</button>
+    <button class="btn btn-red" onclick="descargarData()">2. Descargar Shapefile (.ZIP)</button>
     
     <div id="map"></div>
 </div>
@@ -57,77 +36,58 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 
-<script type="module">
-    import shpwrite from 'https://cdn.skypack.dev/shp-write';
-    window.motorSHP = shpwrite;
-</script>
+<script src="https://cdn.jsdelivr.net/npm/shp-write@0.4.0/shpwrite.js"></script>
 
 <script>
-    let puntosData = [];
+    let geojsonGlobal = null;
     const map = L.map('map').setView([-12.04, -77.03], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
-    let marcadores = L.featureGroup().addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    let layerPuntos = L.featureGroup().addTo(map);
 
-    function procesarPuntos() {
-        puntosData = [];
-        marcadores.clearLayers();
-        const texto = document.getElementById("coords").value.trim();
-        const zona = document.getElementById("zona").value;
-        const hem = document.getElementById("hem").value;
-        const utmDef = `+proj=utm +zone=${zona} ${hem === 'S' ? '+south' : ''} +datum=WGS84 +units=m +no_defs`;
+    function procesarMap() {
+        const texto = document.getElementById("inputCoords").value.trim();
+        if (!texto) return alert("Ingrese datos");
+        
+        layerPuntos.clearLayers();
+        const features = [];
+        const lineas = texto.split("\n");
 
-        if(!texto) return alert("Ingrese datos");
-
-        texto.split("\n").forEach((linea, i) => {
-            const partes = linea.trim().split(/\s+/);
-            if(partes.length >= 2) {
-                const lat = parseFloat(partes[0]);
-                const lon = parseFloat(partes[1]);
-                const utm = proj4("+proj=longlat +datum=WGS84", utmDef, [lon, lat]);
+        lineas.forEach((linea, i) => {
+            const c = linea.trim().split(/\s+/);
+            if (c.length >= 2) {
+                const lat = parseFloat(c[0]);
+                const lon = parseFloat(c[1]);
                 
-                puntosData.push({
-                    id: i + 1,
-                    lat: lat,
-                    lon: lon,
-                    x: utm[0],
-                    y: utm[1]
+                // Definimos la estructura GeoJSON
+                features.push({
+                    type: "Feature",
+                    geometry: { type: "Point", coordinates: [lon, lat] },
+                    properties: { 
+                        ID: i + 1,
+                        X: lon.toFixed(6),
+                        Y: lat.toFixed(6)
+                    }
                 });
-
-                L.marker([lat, lon]).addTo(marcadores).bindPopup(`Punto ${i+1}<br>X: ${utm[0].toFixed(2)}<br>Y: ${utm[1].toFixed(2)}`);
+                L.marker([lat, lon]).addTo(layerPuntos);
             }
         });
 
-        if(puntosData.length > 0) map.fitBounds(marcadores.getBounds());
+        geojsonGlobal = { type: "FeatureCollection", features: features };
+        if (features.length > 0) map.fitBounds(layerPuntos.getBounds());
     }
 
-    async function generarSHP() {
-        if (puntosData.length === 0) return alert("Primero procese los puntos.");
-        
-        if (!window.motorSHP) {
-            alert("El motor de descarga está iniciando. Por favor, espere 3 segundos y vuelva a intentarlo.");
-            return;
-        }
-
-        const geojson = {
-            type: 'FeatureCollection',
-            features: puntosData.map(p => ({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-                properties: { ID: p.id, ESTE_X: p.x, NORTE_Y: p.y }
-            }))
-        };
+    function descargarData() {
+        if (!geojsonGlobal) return alert("Procese los puntos primero");
 
         try {
-            // Usamos la función de descarga del motor modular
-            window.motorSHP.download(geojson, {
-                folder: 'IGN_SHP_DATA',
-                types: { point: 'puntos_exportados' }
+            // Usamos la versión 0.4.0 que es la más estable
+            shpwrite.download(geojsonGlobal, {
+                folder: 'IGN_EXPORT',
+                types: { point: 'puntos_ign' }
             });
-        } catch (e) {
-            console.error(e);
-            alert("Error al generar ZIP: " + e.message);
+        } catch (err) {
+            console.error(err);
+            alert("Error del motor: " + err.message + ". Intente con menos de 50 puntos para probar.");
         }
     }
 </script>
