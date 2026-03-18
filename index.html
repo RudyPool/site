@@ -47,11 +47,12 @@
 
     textarea {
       width: 100%;
-      height: 120px;
+      height: 140px;
       box-sizing: border-box;
       font-family: 'Consolas', monospace;
       font-size: 13px;
       border: 1px solid #ccc;
+      resize: vertical;
     }
 
     button,
@@ -75,11 +76,6 @@
 
     button:hover {
       background: #0055aa
-    }
-
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
     }
 
     .btn-shp {
@@ -146,7 +142,7 @@
   </header>
 
   <div class="container">
-    <div class="status-bar" id="statusBar">Listo para procesar.</div>
+    <div class="status-bar" id="statusBar">Esperando datos...</div>
 
     <div class="controls">
       <label>Modo:</label>
@@ -165,7 +161,7 @@
       </select>
     </div>
 
-    <textarea id="entrada" placeholder="Pegue coordenadas aquí... &#10;IMPORTANTE: Quitar separación de coordenadas (, y ;)&#10;Ej UTM: 276000 8654000&#10;Ej GEO: -12.0456 -77.0312></textarea>
+    <textarea id="entrada" placeholder="Pegue coordenadas aquí...&#10;IMPORTANTE: Quitar separación de coordenadas (, y ;)&#10;Ej UTM: 276000 8654000&#10;Ej GEO: -12.0456 -77.0312"></textarea>
 
     <div class="btn-group">
       <button id="btnProcesar" onclick="procesar()">Transformar</button>
@@ -186,18 +182,19 @@
     <div id="map"></div>
   </div>
 
+  <!-- Scripts -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/proj4@2.9.0/dist/proj4.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   
-  <!-- Motor profesional local -->
+  <!-- Referencia a tu archivo local profesional -->
   <script src="shpwrite.js"></script>
 
   <script>
     let puntosProcesados = [];
     const status = document.getElementById("statusBar");
 
-    // CONFIGURACIÓN MAPA
+    // MAPA BASE
     const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 });
     const satelite = L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 });
     const map = L.map("map", { center: [-9, -75], zoom: 5, layers: [osm] });
@@ -223,10 +220,10 @@
         .bindPopup(`Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}`).openPopup();
     });
 
-    // PROCESAR
+    // PROCESAR TRANSFORMACIÓN
     function procesar() {
       document.body.style.cursor = 'wait';
-      status.innerText = "Transformando coordenadas...";
+      status.innerText = "Transformando datos...";
       
       puntosProcesados = [];
       capaPuntos.clearLayers();
@@ -238,11 +235,14 @@
       const modo = document.getElementById("modo").value;
       const zona = document.getElementById("zona").value;
       const hem = document.getElementById("hemisferio").value;
-      const entradaVal = document.getElementById("entrada").value.trim();
+      
+      // LIMPIEZA AUTOMÁTICA DE COMAS Y PUNTOS Y COMA
+      let entradaVal = document.getElementById("entrada").value.trim();
+      entradaVal = entradaVal.replace(/[,;]/g, ' '); 
       
       if (!entradaVal) {
         document.body.style.cursor = 'default';
-        status.innerText = "Listo.";
+        status.innerText = "Error: Sin datos.";
         return alert("Ingrese coordenadas de entrada");
       }
       
@@ -259,10 +259,17 @@
             const [lon, lat] = proj4(utmDef, "+proj=longlat +datum=WGS84", [+p[0], +p[1]]);
             marcador(lat, lon, i);
             bounds.push([lat, lon]);
-            puntosProcesados.push({ id: i, lat: lat, lon: lon, este: parseFloat(p[0]).toFixed(2), norte: parseFloat(p[1]).toFixed(2), zona: zona + hem });
+            puntosProcesados.push({ 
+                id: i, 
+                lat: lat, 
+                lon: lon, 
+                este: parseFloat(p[0]).toFixed(2), 
+                norte: parseFloat(p[1]).toFixed(2), 
+                zona: zona + hem 
+            });
             tbody.innerHTML += `<tr><td>${i}</td><td>${parseFloat(p[0]).toFixed(2)}</td><td>${parseFloat(p[1]).toFixed(2)}</td><td>${lat.toFixed(7)}</td><td>${lon.toFixed(7)}</td></tr>`;
             i++;
-          } catch(e) { console.error("Error en punto " + i); }
+          } catch(e) { console.error("Error fila " + i); }
         });
       } else {
         thead.innerHTML = "<tr><th>N°</th><th>Latitud</th><th>Longitud</th><th>Este</th><th>Norte</th></tr>";
@@ -273,15 +280,22 @@
             const [e, n] = proj4("+proj=longlat +datum=WGS84", utmDef, [+p[1], +p[0]]);
             marcador(+p[0], +p[1], i);
             bounds.push([+p[0], +p[1]]);
-            puntosProcesados.push({ id: i, lat: parseFloat(p[0]), lon: parseFloat(p[1]), este: e.toFixed(2), norte: n.toFixed(2), zona: zona + hem });
+            puntosProcesados.push({ 
+                id: i, 
+                lat: parseFloat(p[0]), 
+                lon: parseFloat(p[1]), 
+                este: e.toFixed(2), 
+                norte: n.toFixed(2), 
+                zona: zona + hem 
+            });
             tbody.innerHTML += `<tr><td>${i}</td><td>${parseFloat(p[0]).toFixed(7)}</td><td>${parseFloat(p[1]).toFixed(7)}</td><td>${e.toFixed(2)}</td><td>${n.toFixed(2)}</td></tr>`;
             i++;
-          } catch(e) { console.error("Error en punto " + i); }
+          } catch(e) { console.error("Error fila " + i); }
         });
       }
 
       if (bounds.length) map.fitBounds(bounds);
-      status.innerText = `Transformación completa: ${puntosProcesados.length} puntos.`;
+      status.innerText = `Éxito: ${puntosProcesados.length} puntos procesados.`;
       document.body.style.cursor = 'default';
     }
 
@@ -290,16 +304,15 @@
       L.marker([lat, lon], { icon }).addTo(capaPuntos);
     }
 
-    // EXPORTACIÓN SHP
+    // EXPORTACIÓN SHP MEJORADA (Incluye todas las coordenadas en DBF)
     function exportarSHP() {
       if (puntosProcesados.length === 0) return alert("Procese los puntos primero.");
       
       if (typeof shpwrite === 'undefined') {
-          return alert("Motor 'shpwrite.js' no detectado.");
+          return alert("Motor 'shpwrite.js' no detectado. Revisa tu repositorio.");
       }
 
-      document.body.style.cursor = 'progress';
-      status.innerText = "Generando archivos Shapefile...";
+      status.innerText = "Generando Shapefile con tabla de atributos...";
       
       const geojson = {
           type: "FeatureCollection",
@@ -310,23 +323,22 @@
                   ID: p.id, 
                   ESTE: parseFloat(p.este), 
                   NORTE: parseFloat(p.norte), 
+                  LATITUD: parseFloat(p.lat.toFixed(7)),
+                  LONGITUD: parseFloat(p.lon.toFixed(7)),
                   ZONA: p.zona 
               }
           }))
       };
 
       try {
-          // El motor shpwrite maneja su propia descarga
           shpwrite.download(geojson, {
               folder: 'IGN_PERU_SHP',
-              types: { point: 'puntos_ign' }
+              types: { point: 'puntos_ign_peru' }
           });
-          status.innerText = "Shapefile descargado con éxito.";
+          status.innerText = "Shapefile exportado correctamente.";
       } catch (err) {
           alert("Error: " + err.message);
-          status.innerText = "Error en la exportación.";
-      } finally {
-          document.body.style.cursor = 'default';
+          status.innerText = "Error en exportación SHP.";
       }
     }
 
@@ -334,8 +346,8 @@
     function exportarExcel() {
       const tabla = document.getElementById("tabla");
       if (tabla.rows.length <= 1) return alert("Sin datos.");
-      const wb = XLSX.utils.table_to_book(tabla, { sheet: "IGN_Data" });
-      XLSX.writeFile(wb, "Transformacion_IGN.xlsx");
+      const wb = XLSX.utils.table_to_book(tabla, { sheet: "IGN_Transformacion" });
+      XLSX.writeFile(wb, "Transformacion_IGN_Peru.xlsx");
     }
 
     // GEOJSON
@@ -346,21 +358,21 @@
         features: puntosProcesados.map(p => ({
           type: "Feature",
           geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-          properties: { ID: p.id, Este: p.este, Norte: p.norte, Zona: p.zona }
+          properties: { ID: p.id, ESTE: p.este, NORTE: p.norte, LAT: p.lat, LON: p.lon, ZONA: p.zona }
         }))
       };
-      descargar(JSON.stringify(geojson, null, 2), "Export_IGN.geojson", "application/json");
+      descargar(JSON.stringify(geojson, null, 2), "IGN_Export.geojson", "application/json");
     }
 
     // KML
     function exportarKML() {
       if (puntosProcesados.length === 0) return alert("Sin datos.");
-      let kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>IGN Data</name>`;
+      let kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Puntos IGN</name>`;
       puntosProcesados.forEach(p => {
-        kml += `<Placemark><name>Punto ${p.id}</name><description>Este: ${p.este}, Norte: ${p.norte}</description><Point><coordinates>${p.lon},${p.lat},0</coordinates></Point></Placemark>`;
+        kml += `<Placemark><name>Punto ${p.id}</name><description>Este: ${p.este}, Norte: ${p.norte}, Zona: ${p.zona}</description><Point><coordinates>${p.lon},${p.lat},0</coordinates></Point></Placemark>`;
       });
       kml += `</Document></kml>`;
-      descargar(kml, "Export_IGN.kml", "application/vnd.google-earth.kml+xml");
+      descargar(kml, "IGN_Export.kml", "application/vnd.google-earth.kml+xml");
     }
 
     function descargar(contenido, nombre, tipo) {
@@ -387,12 +399,13 @@
         let texto = "";
         lineas.forEach(l => {
           if (!l.trim()) return;
+          // Maneja CSV con comas o puntos y coma
           let p = l.split(/[;,]/);
           if (p.length >= 2 && !isNaN(p[0]) && !isNaN(p[1]))
             texto += p[0].trim() + " " + p[1].trim() + "\n";
         });
         document.getElementById("entrada").value = texto;
-        status.innerText = "CSV importado. Pulse 'Transformar'.";
+        status.innerText = "CSV cargado. Presione 'Transformar'.";
       };
       reader.readAsText(file);
     }
