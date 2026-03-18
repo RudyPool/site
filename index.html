@@ -304,7 +304,7 @@
       L.marker([lat, lon], { icon }).addTo(capaPuntos);
     }
 
-    // EXPORTACIÓN SHP MEJORADA (Incluye todas las coordenadas en DBF)
+    // EXPORTACIÓN SHP MEJORADA
     function exportarSHP() {
       if (puntosProcesados.length === 0) return alert("Procese los puntos primero.");
       
@@ -320,7 +320,7 @@
               type: "Feature",
               geometry: { type: "Point", coordinates: [p.lon, p.lat] },
               properties: { 
-                  ID: p.id, 
+                  PUNTO: p.id, 
                   ESTE: parseFloat(p.este), 
                   NORTE: parseFloat(p.norte), 
                   LATITUD: parseFloat(p.lat.toFixed(7)),
@@ -358,7 +358,7 @@
         features: puntosProcesados.map(p => ({
           type: "Feature",
           geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-          properties: { ID: p.id, ESTE: p.este, NORTE: p.norte, LAT: p.lat, LON: p.lon, ZONA: p.zona }
+          properties: { PUNTO: p.id, ESTE: p.este, NORTE: p.norte, LAT: p.lat, LON: p.lon, ZONA: p.zona }
         }))
       };
       descargar(JSON.stringify(geojson, null, 2), "IGN_Export.geojson", "application/json");
