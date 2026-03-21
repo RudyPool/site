@@ -91,6 +91,7 @@
             flex: 1;
             overflow-y: auto;
             min-height: 0;
+            align-content: center;
         }
 
         .color-bubble {
@@ -203,8 +204,8 @@
         </div>
 
         <div class="w-full space-y-4 mb-8">
-            <button id="btn-start" onclick="initAudioAndGo()" class="btn-big">¡EMPEZAR! 💖</button>
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Toca el botón para jugar con Catalina</p>
+            <button id="btn-start" onclick="initAudioAndGo()" class="btn-big">¡HOLA CATALINA! 💖</button>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Toca el botón rosa para activar el sonido</p>
         </div>
     </div>
 
@@ -262,21 +263,20 @@
 </div>
 
 <script>
-    // --- NUEVO MOTOR DE VOZ (WEB SPEECH API) ---
-    // No necesita API KEY, funciona en cualquier navegador
+    // --- MOTOR DE VOZ NATIVO (NO REQUIERE INTERNET NI LLAVES) ---
     const VoiceEngine = {
         isSpeaking: false,
         synth: window.speechSynthesis,
 
         speak: (text) => {
-            if (VoiceEngine.isSpeaking) VoiceEngine.synth.cancel();
+            // Cancelar cualquier voz anterior
+            VoiceEngine.synth.cancel();
             
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'es-ES';
-            utterance.rate = 0.9; // Un poco más lento para niños
-            utterance.pitch = 1.2; // Un poco más agudo/dulce
+            utterance.lang = 'es-ES'; // Español
+            utterance.rate = 0.85;    // Más lento para que Catalina entienda bien
+            utterance.pitch = 1.3;   // Voz más aguda y dulce
 
-            // Mostrar indicadores visuales
             const indicators = [
                 document.getElementById('home-audio-indicator'),
                 document.getElementById('play-audio-indicator')
@@ -338,7 +338,8 @@
         updateUI();
     }
 
-    async function initAudioAndGo() {
+    function initAudioAndGo() {
+        // Hablar primero para que el navegador habilite el audio de Catalina
         VoiceEngine.speak("¡Hola Catalina! Vamos a jugar con los colores.");
         changeScreen('screen-map');
     }
@@ -384,6 +385,8 @@
         setTimeout(() => VoiceEngine.speak("Catalina, ¿puedes tocar el color " + state.targetColor.name + "?"), 400);
     }
 
+    // Preparar voces al cargar
+    window.speechSynthesis.getVoices();
     updateUI();
 </script>
 
