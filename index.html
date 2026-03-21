@@ -196,13 +196,16 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.85);
             color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 12px;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 13px;
             display: none;
-            z-index: 100;
+            z-index: 1000;
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
         }
     </style>
 </head>
@@ -230,8 +233,8 @@
         </div>
 
         <div class="w-full space-y-4 mb-8">
-            <button id="btn-start" onclick="initAudioAndGo()" class="btn-big">¡EMPEZAR! 💖</button>
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Toca el botón para escuchar a Catalina</p>
+            <button id="btn-start" onclick="initAudioAndGo()" class="btn-big">¡HOLA CATALINA! 💖</button>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">Presiona arriba para activar el sonido de los colores</p>
         </div>
     </div>
 
@@ -260,7 +263,7 @@
         </div>
     </div>
 
-    <!-- PANTALLA EXPLORAR / JUEGO -->
+    <!-- PANTALLA JUEGO -->
     <div id="screen-play" class="screen bg-white">
         <div class="nav-top border-b">
             <button onclick="changeScreen('screen-map')" class="text-xl font-bold text-gray-400 px-4">ATRÁS</button>
@@ -292,7 +295,7 @@
 <script>
     const apiKey = ""; 
 
-    // --- MOTOR DE AUDIO (TTS) ---
+    // --- MOTOR DE AUDIO (TTS) CON BACKOFF EXPONENCIAL ---
     const VoiceEngine = {
         isSpeaking: false,
         
@@ -300,16 +303,16 @@
             const t = document.getElementById('toast');
             t.innerText = msg;
             t.style.display = 'block';
-            setTimeout(() => t.style.display = 'none', 3000);
+            setTimeout(() => t.style.display = 'none', 4000);
         },
 
         speak: async (text) => {
             if (VoiceEngine.isSpeaking) return;
             
-            // Si no hay API Key en ambiente local, avisar
-            if (!apiKey && window.location.protocol === 'file:') {
-                VoiceEngine.showToast("Nota: Sube el archivo a GitHub para activar la voz.");
-                console.warn("API Key no disponible en modo local.");
+            // Verificación de llave para el usuario
+            if (!apiKey) {
+                console.error("API Key no detectada.");
+                VoiceEngine.showToast("Usa el botón 'Preview' para activar el sonido.");
                 return;
             }
 
@@ -324,7 +327,7 @@
             indicators.forEach(ind => ind && ind.classList.add('active'));
 
             const delays = [1000, 2000, 4000, 8000, 16000];
-            let success = false;
+            let audioPlayed = false;
 
             for (let i = 0; i <= delays.length; i++) {
                 try {
@@ -332,20 +335,15 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            contents: [{ parts: [{ text: `Dilo de forma muy dulce, lenta y clara para una niña de 3 años llamada Catalina: ${text}` }] }],
+                            contents: [{ parts: [{ text: `Dilo de forma muy dulce y clara para Catalina: ${text}` }] }],
                             generationConfig: {
                                 responseModalities: ["AUDIO"],
                                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
-                            },
-                            model: "gemini-2.5-flash-preview-tts"
+                            }
                         })
                     });
 
-                    if (response.status === 403) {
-                        throw new Error("Acceso denegado (API Key faltante o inválida)");
-                    }
-
-                    if (!response.ok) throw new Error("Error en servidor");
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                     const result = await response.json();
                     const inlineData = result.candidates?.[0]?.content?.parts?.[0]?.inlineData;
@@ -357,45 +355,35 @@
                         const blob = new Blob([wavBuffer], { type: 'audio/wav' });
                         const audio = new Audio(URL.createObjectURL(blob));
                         
-                        audio.onended = () => {
-                            VoiceEngine.isSpeaking = false;
-                            indicators.forEach(ind => ind && ind.classList.remove('active'));
-                        };
+                        await new Promise((resolve, reject) => {
+                            audio.onended = resolve;
+                            audio.onerror = reject;
+                            audio.play().catch(reject);
+                        });
 
-                        await audio.play();
-                        success = true;
-                        break;
+                        audioPlayed = true;
+                        break; 
                     }
                 } catch (error) {
-                    if (i === delays.length) {
-                        console.error("Fallo final de voz:", error);
-                        VoiceEngine.showToast("Lo siento, no pude hablar ahora. ¡Sigue jugando!");
-                    } else {
+                    console.warn(`Intento ${i+1} fallido. Reintentando...`);
+                    if (i < delays.length) {
                         await new Promise(r => setTimeout(r, delays[i]));
+                    } else {
+                        VoiceEngine.showToast("Error de conexión al hablar. ¡Sigue intentando!");
                     }
                 }
             }
 
-            if (!success) {
-                VoiceEngine.isSpeaking = false;
-                if(loader) loader.style.display = 'none';
-                indicators.forEach(ind => ind && ind.classList.remove('active'));
-            }
+            VoiceEngine.isSpeaking = false;
+            if(loader) loader.style.display = 'none';
+            indicators.forEach(ind => ind && ind.classList.remove('active'));
         },
 
         buildWavHeader: (pcmBuffer, sampleRate) => {
-            const numOfChannels = 1;
-            const bitsPerSample = 16;
             const dataSize = pcmBuffer.byteLength;
-            const headerSize = 44;
-            const buffer = new ArrayBuffer(headerSize + dataSize);
+            const buffer = new ArrayBuffer(44 + dataSize);
             const view = new DataView(buffer);
-
-            const writeString = (offset, string) => {
-                for (let i = 0; i < string.length; i++) {
-                    view.setUint8(offset + i, string.charCodeAt(i));
-                }
-            };
+            const writeString = (off, s) => { for (let i=0; i<s.length; i++) view.setUint8(off+i, s.charCodeAt(i)); };
 
             writeString(0, 'RIFF');
             view.setUint32(4, 36 + dataSize, true);
@@ -403,18 +391,15 @@
             writeString(12, 'fmt ');
             view.setUint32(16, 16, true);
             view.setUint16(20, 1, true);
-            view.setUint16(22, numOfChannels, true);
+            view.setUint16(22, 1, true); // Mono
             view.setUint32(24, sampleRate, true);
-            view.setUint32(28, sampleRate * numOfChannels * bitsPerSample / 8, true);
-            view.setUint16(32, numOfChannels * bitsPerSample / 8, true);
-            view.setUint16(34, bitsPerSample, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
             writeString(36, 'data');
             view.setUint32(40, dataSize, true);
 
-            const pcmUint8 = new Uint8Array(pcmBuffer);
-            const wavUint8 = new Uint8Array(buffer);
-            wavUint8.set(pcmUint8, 44);
-
+            new Uint8Array(buffer, 44).set(new Uint8Array(pcmBuffer));
             return buffer;
         }
     };
@@ -422,61 +407,35 @@
     // --- MOTOR DE LA CASITA ---
     const HouseEngine = {
         render: (points) => {
-            let level = 1;
-            if (points > 1000) level = 5;
-            else if (points > 600) level = 4;
-            else if (points > 300) level = 3;
-            else if (points > 100) level = 2;
-
+            let level = points > 1000 ? 5 : points > 600 ? 4 : points > 300 ? 3 : points > 100 ? 2 : 1;
             const labels = ["Cabaña", "Casita", "Hogar", "Mansión", "Castillo"];
             const colors = ["#d2b48c", "#ffccbc", "#bbdefb", "#f8bbd0", "#e1bee7"];
-            
-            let svgContent = `<ellipse cx="50" cy="85" rx="40" ry="10" fill="#e2e8f0"/>`;
+            let svg = `<ellipse cx="50" cy="85" rx="40" ry="10" fill="#e2e8f0"/>`;
 
-            if (level === 1) {
-                svgContent += `<rect x="30" y="50" width="40" height="35" fill="${colors[0]}" stroke="#8d6e63" stroke-width="2"/><path d="M25 50 L50 25 L75 50 Z" fill="#8d6e63"/><rect x="45" y="65" width="10" height="20" fill="#5d4037"/>`;
-            } else if (level === 2) {
-                svgContent += `<rect x="25" y="45" width="50" height="40" rx="4" fill="${colors[1]}" stroke="#e64a19" stroke-width="2"/><path d="M20 45 L50 15 L80 45 Z" fill="#e64a19"/><rect x="42" y="60" width="16" height="25" fill="#795548"/><rect x="32" y="52" width="8" height="8" fill="#fff" stroke="#e64a19"/>`;
-            } else if (level === 3) {
-                svgContent += `<rect x="20" y="40" width="60" height="45" rx="4" fill="${colors[2]}" stroke="#1976d2" stroke-width="2"/><path d="M15 40 L50 10 L85 40 Z" fill="#1976d2"/><rect x="42" y="55" width="16" height="30" fill="#5d4037"/><rect x="28" y="48" width="10" height="10" fill="#fff" stroke="#1976d2"/><rect x="62" y="48" width="10" height="10" fill="#fff" stroke="#1976d2"/>`;
-            } else if (level === 4) {
-                svgContent += `<rect x="15" y="30" width="70" height="55" rx="6" fill="${colors[3]}" stroke="#c2185b" stroke-width="2"/><rect x="40" y="15" width="30" height="40" fill="${colors[3]}" stroke="#c2185b" stroke-width="2"/><path d="M10 30 L40 5 L75 30 Z" fill="#c2185b"/><rect x="42" y="55" width="16" height="30" fill="#333"/>`;
-            } else {
-                svgContent += `<rect x="20" y="30" width="60" height="55" fill="${colors[4]}" stroke="#7b1fa2" stroke-width="2"/><rect x="10" y="40" width="20" height="45" fill="#ce93d8" stroke="#7b1fa2" stroke-width="2"/><rect x="70" y="40" width="20" height="45" fill="#ce93d8" stroke="#7b1fa2" stroke-width="2"/><path d="M10 40 L20 20 L30 40 Z" fill="#7b1fa2"/><path d="M70 40 L80 20 L90 40 Z" fill="#7b1fa2"/><path d="M20 30 L50 5 L80 30 Z" fill="#7b1fa2"/><circle cx="50" cy="20" r="5" fill="#fde047" opacity="0.8"/>`;
-            }
+            if (level === 1) svg += `<rect x="30" y="50" width="40" height="35" fill="${colors[0]}" stroke="#8d6e63" stroke-width="2"/><path d="M25 50 L50 25 L75 50 Z" fill="#8d6e63"/><rect x="45" y="65" width="10" height="20" fill="#5d4037"/>`;
+            else if (level === 2) svg += `<rect x="25" y="45" width="50" height="40" rx="4" fill="${colors[1]}" stroke="#e64a19" stroke-width="2"/><path d="M20 45 L50 15 L80 45 Z" fill="#e64a19"/><rect x="42" y="60" width="16" height="25" fill="#795548"/><rect x="32" y="52" width="8" height="8" fill="#fff" stroke="#e64a19"/>`;
+            else if (level === 3) svg += `<rect x="20" y="40" width="60" height="45" rx="4" fill="${colors[2]}" stroke="#1976d2" stroke-width="2"/><path d="M15 40 L50 10 L85 40 Z" fill="#1976d2"/><rect x="42" y="55" width="16" height="30" fill="#5d4037"/><rect x="28" y="48" width="10" height="10" fill="#fff" stroke="#1976d2"/><rect x="62" y="48" width="10" height="10" fill="#fff" stroke="#1976d2"/>`;
+            else if (level === 4) svg += `<rect x="15" y="30" width="70" height="55" rx="6" fill="${colors[3]}" stroke="#c2185b" stroke-width="2"/><rect x="40" y="15" width="30" height="40" fill="${colors[3]}" stroke="#c2185b" stroke-width="2"/><path d="M10 30 L40 5 L75 30 Z" fill="#c2185b"/><rect x="42" y="55" width="16" height="30" fill="#333"/>`;
+            else svg += `<rect x="20" y="30" width="60" height="55" fill="${colors[4]}" stroke="#7b1fa2" stroke-width="2"/><rect x="10" y="40" width="20" height="45" fill="#ce93d8" stroke="#7b1fa2" stroke-width="2"/><rect x="70" y="40" width="20" height="45" fill="#ce93d8" stroke="#7b1fa2" stroke-width="2"/><path d="M10 40 L20 20 L30 40 Z" fill="#7b1fa2"/><path d="M70 40 L80 20 L90 40 Z" fill="#7b1fa2"/><path d="M20 30 L50 5 L80 30 Z" fill="#7b1fa2"/><circle cx="50" cy="20" r="5" fill="#fde047" opacity="0.8"/>`;
 
-            return {
-                html: `<svg viewBox="0 0 100 100" class="w-full h-full" preserveAspectRatio="xMidYMid meet">${svgContent}</svg>`,
-                label: labels[level-1]
-            };
+            return { html: `<svg viewBox="0 0 100 100" class="w-full h-full" preserveAspectRatio="xMidYMid meet">${svg}</svg>`, label: labels[level-1] };
         }
     };
 
     const ColorsData = [
-        { name: "Rojo", hex: "#EF4444" },
-        { name: "Azul", hex: "#3B82F6" },
-        { name: "Amarillo", hex: "#FACC15" },
-        { name: "Verde", hex: "#22C55E" },
-        { name: "Naranja", hex: "#FB923C" },
-        { name: "Morado", hex: "#A855F7" },
-        { name: "Rosa", hex: "#F472B6" },
-        { name: "Marrón", hex: "#78350F" }
+        { name: "Rojo", hex: "#EF4444" }, { name: "Azul", hex: "#3B82F6" },
+        { name: "Amarillo", hex: "#FACC15" }, { name: "Verde", hex: "#22C55E" },
+        { name: "Naranja", hex: "#FB923C" }, { name: "Morado", hex: "#A855F7" },
+        { name: "Rosa", hex: "#F472B6" }, { name: "Marrón", hex: "#78350F" }
     ];
 
-    let state = {
-        points: parseInt(localStorage.getItem('catuColPoints')) || 0,
-        mode: 'explore',
-        targetColor: null
-    };
+    let state = { points: parseInt(localStorage.getItem('catuColPoints')) || 0, mode: 'explore', targetColor: null };
 
     function updateUI() {
         const houseData = HouseEngine.render(state.points);
         document.getElementById('home-house').innerHTML = houseData.html;
         document.getElementById('house-name').innerText = houseData.label + " de Catalina";
-        
-        const playHouse = document.getElementById('play-house');
-        if(playHouse) playHouse.innerHTML = houseData.html;
-
+        if(document.getElementById('play-house')) document.getElementById('play-house').innerHTML = houseData.html;
         document.getElementById('map-stars').innerText = state.points;
         document.getElementById('play-stars').innerText = state.points;
     }
@@ -488,21 +447,17 @@
     }
 
     async function initAudioAndGo() {
-        VoiceEngine.speak("¡Hola Catalina! Bienvenida a tus colores.");
+        // Reproducir bienvenida para "despertar" el audio del navegador
+        await VoiceEngine.speak("¡Hola Catalina! Vamos a jugar con los colores.");
         changeScreen('screen-map');
     }
 
     function startMode(m) {
         state.mode = m;
         const cont = document.getElementById('color-container');
-        const instr = document.getElementById('instruction-bar');
         cont.innerHTML = '';
-
-        if(m === 'explore') {
-            instr.innerText = "¡Catalina, toca un color!";
-        } else {
-            newQuestion();
-        }
+        if(m === 'game') newQuestion();
+        else document.getElementById('instruction-bar').innerText = "¡Catalina, toca un color!";
 
         ColorsData.forEach(c => {
             const bubble = document.createElement('div');
@@ -511,33 +466,24 @@
             bubble.onclick = () => handleColorClick(c);
             cont.appendChild(bubble);
         });
-
         changeScreen('screen-play');
     }
 
     async function handleColorClick(c) {
         if(VoiceEngine.isSpeaking) return;
-        
-        VoiceEngine.speak(c.name);
+        await VoiceEngine.speak(c.name);
 
         if(state.mode === 'game') {
             if(c.name === state.targetColor.name) {
                 state.points += 25;
                 localStorage.setItem('catuColPoints', state.points);
-                
                 document.getElementById('instruction-bar').innerText = "¡MUY BIEN, CATALINA! 🌟";
-                VoiceEngine.speak("¡Eso es, Catalina! ¡Muy bien!");
-
+                await VoiceEngine.speak("¡Eso es, Catalina! ¡Muy bien!");
                 const ph = document.getElementById('play-house');
-                ph.classList.add('house-jump');
-                setTimeout(() => ph.classList.remove('house-jump'), 600);
-
-                setTimeout(() => {
-                    newQuestion();
-                    updateUI();
-                }, 3000);
+                if(ph) { ph.classList.add('house-jump'); setTimeout(() => ph.classList.remove('house-jump'), 600); }
+                setTimeout(() => { newQuestion(); updateUI(); }, 2500);
             } else {
-                VoiceEngine.speak("¿Dónde está el color " + state.targetColor.name + "?");
+                await VoiceEngine.speak("¿Dónde está el color " + state.targetColor.name + "?");
             }
         }
     }
@@ -545,9 +491,7 @@
     function newQuestion() {
         state.targetColor = ColorsData[Math.floor(Math.random() * ColorsData.length)];
         document.getElementById('instruction-bar').innerText = "¿Dónde está el " + state.targetColor.name + "?";
-        setTimeout(() => {
-            VoiceEngine.speak("Catalina, ¿puedes tocar el color " + state.targetColor.name + "?");
-        }, 500);
+        setTimeout(() => VoiceEngine.speak("Catalina, ¿puedes tocar el color " + state.targetColor.name + "?"), 400);
     }
 
     updateUI();
