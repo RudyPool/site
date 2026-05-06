@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Academia de Oz 🌪️</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <!-- Botón de Música -->
+  <div style="position: absolute; top: 15px; right: 15px; z-index: 1000;">
+    <button id="music-toggle" onclick="toggleMusic()" style="background: rgba(255,255,255,0.2); border: 2px solid #f6e58d; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; padding: 0 !important; margin: 0 !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: all 0.3s; display: flex; align-items: center; justify-content: center;" title="Música de Fondo">🔇</button>
+  </div>
+
+  <audio id="bg-music" loop>
+    <!-- Enlace a melodía mágica por defecto. Puedes cambiar "src" por "musica.mp3" si tienes tu propio archivo en la carpeta. -->
+    <source src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3" type="audio/mpeg">
+  </audio>
+
+  <h1>🏰 La Academia de Oz 🏰</h1>
+  <p style="text-align: center; color: #fff; font-size: 22px;">¿Qué camino de baldosas amarillas quieres seguir hoy?</p>
+  
+  <div style="text-align: center; margin-bottom: 20px;">
+    <button onclick="openTrophies()" style="width: auto; padding: 10px 25px; border-radius: 25px; background: linear-gradient(45deg, #f1c40f, #f39c12); color: #2d3436; font-size: 18px; margin-top: 0; display: inline-block; text-shadow: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">🏆 Sala de Trofeos</button>
+  </div>
+  
+  <div style="text-align: center; margin-bottom: 30px;">
+    <label style="color: white; font-size: 18px; margin-right: 10px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">Nivel de Dificultad:</label>
+    <select id="global-difficulty" onchange="changeDifficulty()" style="padding: 10px; font-size: 16px; border-radius: 10px; background: rgba(255,255,255,0.9); border: 3px solid #f6e58d; cursor: pointer; outline: none; font-weight: bold; color: #2d3436;">
+      <option value="1">Fácil 🟢</option>
+      <option value="2">Medio 🟡</option>
+      <option value="3">Difícil 🔴</option>
+    </select>
+  </div>
+
+  <div class="hub-container">
+    <!-- Botón hacia Matemáticas -->
+    <a href="matematica.html" class="hub-card">
+      <span class="hub-icon">🔢</span>
+      <h2>Matemáticas</h2>
+      <p>Ayuda a Dorothy con sumas, restas y acertijos numéricos.</p>
+    </a>
+
+    <!-- Botón hacia Lectura -->
+    <a href="lectura.html" class="hub-card">
+      <span class="hub-icon">📖</span>
+      <h2>Comprensión Lectora</h2>
+      <p>Lee historias de sabiduría y valor para ayudar a tus amigos.</p>
+    </a>
+
+    <!-- Botón hacia Historia del Perú -->
+    <a href="historia.html" class="hub-card">
+      <span class="hub-icon">🏺</span>
+      <h2>Historia del Perú</h2>
+      <p>Viaja en el tiempo y descubre los secretos de nuestra historia.</p>
+    </a>
+
+    <!-- Botón hacia Memoria -->
+    <a href="memoria.html" class="hub-card">
+      <span class="hub-icon">🧠</span>
+      <h2>Memoria</h2>
+      <p>Ejercita tu mente encontrando las parejas escondidas.</p>
+    </a>
+
+    <!-- Botón hacia Adivinanzas -->
+    <a href="adivinanzas.html" class="hub-card">
+      <span class="hub-icon">🧙‍♂️</span>
+      <h2>Adivinanzas Mágicas</h2>
+      <p>Resuelve acertijos y demuestra tu astucia al Mago de Oz.</p>
+    </a>
+
+    <!-- Botón hacia Ciencia y Tecnología -->
+    <a href="ciencia.html" class="hub-card">
+      <span class="hub-icon">🔬</span>
+      <h2>Ciencia y Tecnología</h2>
+      <p>Descubre los secretos de la naturaleza, el cuerpo humano y la materia.</p>
+    </a>
+
+    <!-- Botón hacia Comunicación -->
+    <a href="comunicacion.html" class="hub-card">
+      <span class="hub-icon">🗣️</span>
+      <h2>Comunicación</h2>
+      <p>Practica lectura, escritura y descubre el poder de las palabras.</p>
+    </a>
+  </div>
+
+  <!-- MODAL DE LA SALA DE TROFEOS -->
+  <div id="trophy-modal" class="modal">
+    <div class="modal-content">
+      <button class="close-btn" onclick="closeTrophies()">&times;</button>
+      <h2 style="color: #f6e58d; margin-top: 10px;">🏆 Galería de Logros 🏆</h2>
+      <p style="font-size: 16px;">Aquí se guardan todas tus medallas de la Academia de Oz.</p>
+      <div class="trophy-grid" id="trophy-grid">
+        <!-- Los trofeos se generarán por JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ALL_ACHIEVEMENTS = [
+      { id: 'first_math', icon: '🌟', title: 'Matemático Novato', desc: 'Resolviste tu primera misión matemática.' },
+      { id: 'mission_10', icon: '🏅', title: 'Experto Matemático', desc: 'Llegaste a la misión 10.' },
+      { id: 'combo_5', icon: '🔥', title: 'Racha Imparable', desc: 'Racha de 5 respuestas correctas.' },
+      { id: 'first_color', icon: '🎨', title: 'Artista Mágico', desc: 'Encontraste tu primer color mágico.' },
+      { id: 'first_race', icon: '🎲', title: 'Corredor Veloz', desc: 'Terminaste tu primera carrera.' },
+      { id: 'first_detective', icon: '🕵️‍♂️', title: 'Detective Novato', desc: 'Resolviste tu primer misterio.' },
+      { id: 'first_reading', icon: '📖', title: 'Lector Principiante', desc: 'Comprendiste tu primera historia.' },
+      { id: 'reading_10', icon: '📚', title: 'Devorador de Libros', desc: 'Leíste 10 historias maravillosas.' },
+      { id: 'first_history', icon: '🏺', title: 'Viajero del Tiempo', desc: 'Primer viaje en el tiempo completado.' },
+      { id: 'history_10', icon: '👑', title: 'Historiador', desc: 'Visitaste 10 épocas históricas.' },
+      { id: 'first_match', icon: '🧠', title: 'Mente Despierta', desc: 'Encontraste tu primera pareja.' },
+      { id: 'memoria_10', icon: '🏅', title: 'Maestro Memoria', desc: 'Completaste 10 niveles de memoria.' },
+      { id: 'first_riddle', icon: '🧙‍♂️', title: 'Pensador Astuto', desc: 'Resolviste tu primera adivinanza.' },
+      { id: 'riddle_10', icon: '👁️‍🗨️', title: 'Sabio de Oz', desc: 'Completaste 10 acertijos mágicos.' },
+      { id: 'first_science', icon: '🔬', title: 'Científico Curioso', desc: 'Descubriste un secreto científico.' },
+      { id: 'science_10', icon: '🧬', title: 'Genio de Laboratorio', desc: 'Completaste todos los experimentos.' },
+      { id: 'first_communication', icon: '🗣️', title: 'Orador Novato', desc: 'Descubriste el poder de las palabras.' },
+      { id: 'communication_10', icon: '📜', title: 'Maestro Orador', desc: 'Completaste niveles de Comunicación.' },
+      { id: 'master_of_oz', icon: '👑', title: 'MAESTRO DE OZ', desc: '¡Jugaste TODOS los minijuegos!' }
+    ];
+
+    function openTrophies() {
+      const unlocked = JSON.parse(localStorage.getItem('oz_achievements')) || [];
+      const grid = document.getElementById('trophy-grid');
+      grid.innerHTML = '';
+      
+      ALL_ACHIEVEMENTS.forEach(ach => {
+        const isUnlocked = unlocked.includes(ach.id);
+        const card = document.createElement('div');
+        card.className = `trophy-card ${isUnlocked ? '' : 'locked'}`;
+        card.innerHTML = `<div class="trophy-icon">${isUnlocked ? ach.icon : '🔒'}</div><div class="trophy-title">${isUnlocked ? ach.title : '???'}</div><div class="trophy-desc">${isUnlocked ? ach.desc : 'Logro oculto.'}</div>`;
+        grid.appendChild(card);
+      });
+      document.getElementById('trophy-modal').classList.add('show');
+    }
+    function closeTrophies() { document.getElementById('trophy-modal').classList.remove('show'); }
+    
+    // Cargar y guardar dificultad global
+    document.addEventListener("DOMContentLoaded", () => {
+      const diffSelect = document.getElementById('global-difficulty');
+      if (diffSelect) {
+        diffSelect.value = localStorage.getItem('oz_difficulty') || '1';
+      }
+    });
+    function changeDifficulty() {
+      localStorage.setItem('oz_difficulty', document.getElementById('global-difficulty').value);
+    }
+
+    // --- CONTROL DE MÚSICA DE FONDO ---
+    let musicPlaying = false;
+    const bgMusic = document.getElementById('bg-music');
+    bgMusic.volume = 0.15; // Volumen muy suave (15%)
+
+    function toggleMusic() {
+      if (musicPlaying) {
+        bgMusic.pause();
+        document.getElementById('music-toggle').innerText = '🔇';
+        musicPlaying = false;
+      } else {
+        bgMusic.play().then(() => {
+          document.getElementById('music-toggle').innerText = '🔊';
+          musicPlaying = true;
+        }).catch(e => console.warn("No se pudo cargar la música. Asegúrate de tener conexión a internet.", e));
+      }
+    }
+  </script>
+</body>
+</html>

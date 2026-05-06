@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memoria con Dorothy 🧠</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <canvas id="magic-canvas"></canvas>
+
+  <div id="screen-welcome" class="screen active">
+    <h1>🧠 Memoria Mágica 👠</h1>
+    
+    <div class="card">
+      <h2>Elige a tu Buscador</h2>
+      
+      <div class="avatar-composite" id="avatar-builder-preview">
+        <div class="base-layer" id="builder-base">👧</div>
+        <div class="acc-layer" id="builder-acc"></div>
+      </div>
+      
+      <div class="builder-section">
+        <div class="builder-title">1. Elige tu aventurero:</div>
+        <div class="avatar-grid">
+          <button class="avatar-btn base-btn selected" onclick="GameApp.avatarRenderer.setBase('👧', this)">👧</button>
+          <button class="avatar-btn base-btn" onclick="GameApp.avatarRenderer.setBase('🦁', this)">🦁</button>
+          <button class="avatar-btn base-btn" onclick="GameApp.avatarRenderer.setBase('🤖', this)">🤖</button>
+          <button class="avatar-btn base-btn" onclick="GameApp.avatarRenderer.setBase('🌾', this)">🌾</button>
+          <button class="avatar-btn base-btn" onclick="GameApp.avatarRenderer.setBase('🐶', this)">🐶</button>
+        </div>
+      </div>
+
+      <div class="builder-section">
+        <div class="builder-title">2. Ponle un accesorio mágico:</div>
+        <div class="avatar-grid">
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🎀', this)">🎀</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('👑', this)">👑</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🎩', this)">🎩</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('👓', this)">👓</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🪄', this)">🪄</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🧢', this)">🧢</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🛡️', this)">🛡️</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🗡️', this)">🗡️</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🌸', this)">🌸</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🎭', this)">🎭</button>
+        </div>
+      </div>
+      
+      <button id="continue-btn" onclick="GameApp.startGame(false)" style="display: none; background: linear-gradient(45deg, #00b894, #55efc4); margin-bottom: 15px;">Continuar Búsqueda ➡️</button>
+      <button id="start-btn" onclick="GameApp.startGame(true)">¡A Jugar! ✨</button>
+      <button id="reset-btn" onclick="GameApp.resetData()" style="display: none; background: transparent; color: #eb4d4b; border: 2px solid #eb4d4b; margin-top: 10px; font-size: 16px;">🗑️ Borrar Historial</button>
+      
+      <a href="index.html" style="display: block; margin-top: 20px; color: white;">⬅️ Volver a la Academia</a>
+    </div>
+  </div>
+
+  <div id="screen-game" class="screen">
+    <div class="stats-container">
+      <div class="stat-badge" title="Estrellas Mágicas"><span id="hud-stars">⭐ 0</span></div>
+      <div class="stat-badge" title="Combo Actual"><span id="hud-combo">🔥 x1</span></div>
+    </div>
+
+    <div class="card" id="game-card" style="max-width: 600px;">
+      <div style="position: absolute; top: 10px; left: 10px; z-index: 10;">
+        <a href="index.html" style="text-decoration: none; font-size: 24px;" title="Volver al Portal">🏠</a>
+      </div>
+      <div style="position: absolute; top: 10px; right: 10px;">
+        <div class="mini-avatar-container" id="hud-avatar"></div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+      
+      <h2 id="level-title">Nivel 1</h2>
+      <p id="level-question">Encuentra todas las parejas ocultas.</p>
+      
+      <div class="memory-grid" id="memory-grid">
+        <!-- Cartas generadas dinámicamente -->
+      </div>
+      
+      <div class="result" id="level-result"></div>
+      <button id="next-btn" style="display: none;" onclick="GameApp.engine.nextLevel()">Siguiente Nivel ➡️</button>
+    </div>
+  </div>
+
+  <div id="screen-victory" class="screen">
+    <h1>🌈 ¡MENTE BRILLANTE! 🌈</h1>
+    <div class="avatar-composite" id="victory-avatar"></div>
+    <div class="card">
+      <h2>¡Eres un maestro de la memoria!</h2>
+      <p>Has encontrado todas las parejas y demostrado una gran concentración.</p>
+      <div class="stats-container" style="justify-content: center; margin-top:20px;">
+        <div class="stat-badge" id="final-stars">⭐ 0</div>
+      </div>
+      <button onclick="location.reload()">Jugar otra vez</button>
+    </div>
+  </div>
+
+  <script src="memoria.js"></script>
+</body>
+</html>

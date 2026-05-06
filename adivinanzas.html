@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adivinanzas Mágicas 🧙‍♂️</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <canvas id="magic-canvas"></canvas>
+
+  <div id="screen-welcome" class="screen active">
+    <h1>🧙‍♂️ Acertijos del Mago 👠</h1>
+    
+    <div class="card">
+      <h2>Elige a tu Pensador</h2>
+      
+      <div class="avatar-composite" id="avatar-builder-preview">
+        <div class="base-layer" id="builder-base">👧</div>
+        <div class="acc-layer" id="builder-acc"></div>
+      </div>
+      
+      <div class="builder-section">
+        <div class="builder-title">1. Elige tu aventurero:</div>
+        <div class="avatar-grid">
+          <button class="avatar-btn base-btn selected" onclick="GameApp.avatarRenderer.setBase('👧', this)">👧</button>
+          <button class="avatar-btn base-btn" onclick="GameApp.avatarRenderer.setBase('🦁', this)">🦁</button>
+          <button class="avatar-btn base-btn" onclick="GameApp.avatarRenderer.setBase('🤖', this)">🤖</button>
+          <button class="avatar-btn base-btn" onclick="GameApp.avatarRenderer.setBase('🌾', this)">🌾</button>
+          <button class="avatar-btn base-btn" onclick="GameApp.avatarRenderer.setBase('🐶', this)">🐶</button>
+        </div>
+      </div>
+
+      <div class="builder-section">
+        <div class="builder-title">2. Ponle un accesorio mágico:</div>
+        <div class="avatar-grid">
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🎀', this)">🎀</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('👓', this)">👓</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🪄', this)">🪄</button>
+          <button class="avatar-btn acc-btn" onclick="GameApp.avatarRenderer.setAccessory('🎩', this)">🎩</button>
+        </div>
+      </div>
+      
+      <button id="continue-btn" onclick="GameApp.startGame(false)" style="display: none; background: linear-gradient(45deg, #00b894, #55efc4); margin-bottom: 15px;">Continuar Reto ➡️</button>
+      <button id="start-btn" onclick="GameApp.startGame(true)">¡A Pensar! ✨</button>
+      <button id="reset-btn" onclick="GameApp.resetData()" style="display: none; background: transparent; color: #eb4d4b; border: 2px solid #eb4d4b; margin-top: 10px; font-size: 16px;">🗑️ Borrar Historial</button>
+      
+      <a href="index.html" style="display: block; margin-top: 20px; color: white;">⬅️ Volver a la Academia</a>
+    </div>
+  </div>
+
+  <div id="screen-game" class="screen">
+    <div class="stats-container">
+      <div class="stat-badge" title="Estrellas"><span id="hud-stars">⭐ 0</span></div>
+      <div class="stat-badge" title="Combo Actual"><span id="hud-combo">🔥 x1</span></div>
+    </div>
+    <div class="card" id="game-card" style="max-width: 650px;">
+      <div style="position: absolute; top: 10px; left: 10px; z-index: 10;"><a href="index.html" style="text-decoration: none; font-size: 24px;" title="Volver al Portal">🏠</a></div>
+      <div style="position: absolute; top: 10px; right: 10px;"><div class="mini-avatar-container" id="hud-avatar"></div></div>
+      <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+      
+      <h2 id="level-title">Acertijo 1</h2>
+      <div id="level-passage" class="passage-box" style="text-align: center; font-size: 22px; font-style: italic; border-left: none; border-top: 6px solid #feca57;">Cargando...</div>
+      
+      <div class="options-grid" id="options-container"></div>
+      <div class="result" id="level-result"></div>
+      <button id="next-btn" style="display: none;" onclick="GameApp.engine.nextLevel()">Siguiente Acertijo ➡️</button>
+    </div>
+  </div>
+
+  <div id="screen-victory" class="screen">
+    <h1>🌈 ¡MENTE MAESTRA! 🌈</h1>
+    <div class="avatar-composite" id="victory-avatar"></div>
+    <div class="card"><h2>¡Venciste al Mago en su propio juego!</h2><div class="stats-container" style="justify-content: center; margin-top:20px;"><div class="stat-badge" id="final-stars">⭐ 0</div></div><button onclick="location.reload()">Jugar otra vez</button></div>
+  </div>
+
+  <script src="adivinanzas.js"></script>
+</body>
+</html>
